@@ -75,6 +75,13 @@ try {
         critters.list.length = had;
       }
     }
+    // Spawning puts them just off the edge, so spread them across the sky and
+    // stop them moving; otherwise the screenshot is an empty field.
+    critters.list.forEach((critter, i) => {
+      critter.x = window.__balloon.scene.width * (0.16 + i * 0.17);
+      critter.speed = 0;
+      if (critter.group === 'sky') critter.wander = 0;
+    });
     critters.cheer(2);
     return critters.list.map((c) => c.kind);
   });

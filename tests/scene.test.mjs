@@ -26,7 +26,7 @@ function recordingContext() {
   return {
     calls,
     setTransform: noop, save: noop, restore: noop, translate: noop, scale: noop,
-    rotate: noop, beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop,
+    rotate: noop, beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, clip: noop,
     quadraticCurveTo: noop, bezierCurveTo: noop, clearRect: noop, fillRect: noop,
     createLinearGradient: () => gradient, createRadialGradient: () => gradient,
     fill() { calls.fill++; }, stroke() { calls.stroke++; },

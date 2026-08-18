@@ -16,6 +16,7 @@
 
 const SKY_KINDS = ['bird', 'butterfly'];
 const GROUND_KINDS = ['caterpillar', 'cat', 'dog'];
+const BUTTERFLY_HUES = [45, 30, 275, 200, 330];
 
 const MAX_SKY = 2;
 const MAX_GROUND = 1;
@@ -30,7 +31,6 @@ const GROUND_FIRST = [25, 45];
 const GROUND_GAP = [75, 135];
 
 const between = ([low, high]) => low + Math.random() * (high - low);
-const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 export class Critters {
   constructor(scene) {
@@ -39,6 +39,14 @@ export class Critters {
     this.skyIn = between(SKY_FIRST);
     this.groundIn = between(GROUND_FIRST);
     this.time = 0;
+
+    // Which animal comes next. These rotate rather than being picked at random,
+    // because random picking happily sends the same animal three times running,
+    // and part of the appeal is not knowing which one is next. Cats and dogs
+    // therefore take turns. The starting point is random so it is not always the
+    // caterpillar first.
+    this.groundTurn = Math.floor(Math.random() * GROUND_KINDS.length);
+    this.skyTurn = Math.floor(Math.random() * SKY_KINDS.length);
 
     // A child who has asked the browser to calm down gets no moving wildlife.
     this.reducedMotion = Boolean(
@@ -92,7 +100,7 @@ export class Critters {
   }
 
   spawnSky() {
-    const kind = pick(SKY_KINDS);
+    const kind = SKY_KINDS[this.skyTurn++ % SKY_KINDS.length];
     const { width, height } = this.scene;
     const dir = Math.random() < 0.5 ? 1 : -1;
     const size = Math.max(11, Math.min(width, height) * (kind === 'bird' ? 0.030 : 0.027));
@@ -121,14 +129,14 @@ export class Critters {
       flap: kind === 'bird' ? between([7, 10]) : between([4.5, 6.5]),
       phase: Math.random() * 6.283,
       wander,
-      hue: kind === 'butterfly' ? pick([45, 30, 275, 200, 330]) : 0,
+      hue: kind === 'butterfly' ? BUTTERFLY_HUES[this.skyTurn % BUTTERFLY_HUES.length] : 0,
       cheerFor: 0,
       age: 0,
     });
   }
 
   spawnGround() {
-    const kind = pick(GROUND_KINDS);
+    const kind = GROUND_KINDS[this.groundTurn++ % GROUND_KINDS.length];
     const { width, height } = this.scene;
     const dir = Math.random() < 0.5 ? 1 : -1;
     const size = Math.max(13, Math.min(width, height)
@@ -237,30 +245,37 @@ export class Critters {
       ctx.arc(-i * s * 0.62, -s * 0.42 - Math.max(0, lift) * s * 0.3, s * 0.36 * grow, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.strokeStyle = 'hsla(96, 45%, 30%, 0.9)';
-    ctx.lineWidth = Math.max(1, s * 0.07);
-    for (const side of [-0.5, 0.5]) {
-      ctx.beginPath();
-      ctx.moveTo(s * 0.2, -s * 0.7);
-      ctx.lineTo(s * 0.42, -s * 1.05 + side * s * 0.2);
-      ctx.stroke();
-    }
-  }
-
-  // Four short legs that swing in pairs: enough to read as walking at this size.
-  drawLegs(ctx, critter, spread, color) {
-    const s = critter.size;
-    const swing = Math.sin(critter.phase * 1.5);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1.4, s * 0.1);
+    // Antennae: thin, curved, with a little ball on the end.
+    ctx.strokeStyle = 'hsla(96, 40%, 28%, 0.95)';
+    ctx.lineWidth = Math.max(0.9, s * 0.05);
     ctx.lineCap = 'round';
-    for (const [i, at] of spread.entries()) {
-      const lift = (i % 2 === 0 ? swing : -swing) * s * 0.12;
+    ctx.fillStyle = 'hsla(96, 40%, 28%, 0.95)';
+    for (const side of [-1, 1]) {
+      const tipX = s * (0.30 + side * 0.06);
+      const tipY = -s * (1.02 + side * 0.06);
       ctx.beginPath();
-      ctx.moveTo(at * s, -s * 0.3);
-      ctx.lineTo(at * s + lift, -s * 0.02);
+      ctx.moveTo(s * 0.14, -s * 0.66);
+      ctx.quadraticCurveTo(s * 0.30, -s * 0.96, tipX, tipY);
       ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(tipX, tipY, s * 0.075, 0, Math.PI * 2);
+      ctx.fill();
     }
+
+    // A face on the head segment.
+    ctx.fillStyle = 'hsl(22, 32%, 17%)';
+    ctx.beginPath();
+    ctx.arc(s * 0.16, -s * 0.5, s * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s * 0.175, -s * 0.52, s * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'hsl(22, 32%, 17%)';
+    ctx.lineWidth = Math.max(0.8, s * 0.035);
+    ctx.beginPath();
+    ctx.arc(s * 0.2, -s * 0.42, s * 0.09, 0.35, 1.5);
+    ctx.stroke();
   }
 
   // A shadow keeps them standing on the grass rather than floating over it, and
@@ -274,137 +289,310 @@ export class Critters {
     ctx.fill();
   }
 
+  // Same approach as the dog: one flowing outline, a big round skull and a short
+  // muzzle. A cat's silhouette differs mostly in the ears and the tail, so those
+  // carry the recognition.
+  catOutline(ctx, s) {
+    ctx.beginPath();
+    ctx.moveTo(-0.52 * s, -0.34 * s);
+    ctx.bezierCurveTo(-0.74 * s, -0.44 * s, -0.72 * s, -0.76 * s, -0.48 * s, -0.82 * s); // rump
+    ctx.bezierCurveTo(-0.24 * s, -0.90 * s, 0.04 * s, -0.86 * s, 0.24 * s, -0.90 * s);   // back
+    ctx.bezierCurveTo(0.40 * s, -0.94 * s, 0.40 * s, -1.10 * s, 0.54 * s, -1.18 * s);    // neck
+    ctx.bezierCurveTo(0.72 * s, -1.30 * s, 0.98 * s, -1.24 * s, 1.03 * s, -1.04 * s);    // skull
+    ctx.bezierCurveTo(1.07 * s, -0.94 * s, 1.08 * s, -0.84 * s, 1.00 * s, -0.76 * s);    // cheek
+    ctx.bezierCurveTo(0.94 * s, -0.70 * s, 0.84 * s, -0.685 * s, 0.76 * s, -0.70 * s);   // short muzzle
+    ctx.bezierCurveTo(0.66 * s, -0.72 * s, 0.60 * s, -0.52 * s, 0.54 * s, -0.40 * s);    // throat
+    ctx.bezierCurveTo(0.46 * s, -0.29 * s, 0.06 * s, -0.265 * s, -0.16 * s, -0.29 * s);  // belly
+    ctx.bezierCurveTo(-0.34 * s, -0.305 * s, -0.46 * s, -0.315 * s, -0.52 * s, -0.34 * s);
+    ctx.closePath();
+  }
+
   drawCat(ctx, cat) {
     const s = cat.size;
-    const coat = 'hsl(28, 55%, 56%)';
-    const dark = 'hsl(26, 50%, 38%)';
-    const wag = Math.sin(cat.phase * (cat.cheerFor > 0 ? 3.4 : 1.1));
+    const coat = 'hsl(30, 50%, 58%)';
+    const shade = 'hsl(28, 44%, 44%)';
+    const cream = 'hsl(40, 60%, 92%)';
+    const pink = 'hsl(348, 62%, 76%)';
+    const ink = 'hsl(22, 32%, 17%)';
+    const flick = Math.sin(cat.phase * (cat.cheerFor > 0 ? 3.4 : 1.1));
 
     this.drawShadow(ctx, cat);
-    this.drawLegs(ctx, cat, [-0.3, -0.12, 0.2, 0.36], dark);
+    this.drawPaw(ctx, cat, -0.26 * s, 2.1, shade, shade);
+    this.drawPaw(ctx, cat, 0.36 * s, 0.9, shade, shade);
 
-    // A tall curled tail is most of what says "cat" at this size.
-    ctx.strokeStyle = coat;
-    ctx.lineWidth = s * 0.14;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.44, -s * 0.46);
-    ctx.quadraticCurveTo(-s * 0.92, -s * 0.72 + wag * s * 0.16, -s * 0.66, -s * 1.16 + wag * s * 0.14);
-    ctx.stroke();
-
+    // A tall curled tail, tapered, flicking. This is the cat's signature.
+    const tailPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(-0.46 * s, -0.72 * s);
+      ctx.bezierCurveTo(
+        (-0.86 + flick * 0.05) * s, -0.86 * s,
+        (-0.96 + flick * 0.14) * s, -1.24 * s,
+        (-0.70 + flick * 0.20) * s, -1.36 * s,
+      );
+      ctx.bezierCurveTo(
+        (-0.80 + flick * 0.14) * s, -1.16 * s,
+        (-0.70 + flick * 0.05) * s, -0.94 * s,
+        -0.34 * s, -0.66 * s,
+      );
+      ctx.closePath();
+    };
     ctx.fillStyle = coat;
+    tailPath();
+    ctx.fill();
+    ctx.save();
+    tailPath();
+    ctx.clip();
+    ctx.fillStyle = cream;
     ctx.beginPath();
-    ctx.ellipse(0, -s * 0.52, s * 0.46, s * 0.27, 0, 0, Math.PI * 2);
+    ctx.arc((-0.70 + flick * 0.20) * s, -1.34 * s, s * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Ears, drawn before the head so their bases disappear behind the skull.
+    for (const [dx, lean] of [[0.60, -0.22], [0.94, 0.12]]) {
+      ctx.fillStyle = coat;
+      ctx.beginPath();
+      ctx.moveTo((dx - 0.11) * s, -1.12 * s);
+      ctx.quadraticCurveTo((dx + lean) * s, -1.60 * s, (dx + 0.15) * s, -1.10 * s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = pink;
+      ctx.beginPath();
+      ctx.moveTo((dx - 0.04) * s, -1.14 * s);
+      ctx.quadraticCurveTo((dx + lean * 0.8) * s, -1.44 * s, (dx + 0.09) * s, -1.13 * s);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    this.catOutline(ctx, s);
+    ctx.fillStyle = coat;
     ctx.fill();
 
-    // Tabby stripes: cheap, and they read as a cat immediately.
-    ctx.strokeStyle = dark;
-    ctx.lineWidth = Math.max(1.2, s * 0.055);
-    for (const at of [-0.2, 0.0, 0.2]) {
+    ctx.save();
+    this.catOutline(ctx, s);
+    ctx.clip();
+
+    // Tabby stripes over the back, following the body rather than sitting on it.
+    ctx.strokeStyle = shade;
+    ctx.lineWidth = s * 0.075;
+    ctx.lineCap = 'round';
+    for (const at of [-0.30, -0.12, 0.06]) {
       ctx.beginPath();
-      ctx.arc(s * at, -s * 0.52, s * 0.24, -2.5, -0.7);
+      ctx.moveTo(at * s, -0.92 * s);
+      ctx.quadraticCurveTo((at + 0.06) * s, -0.80 * s, (at + 0.02) * s, -0.68 * s);
       ctx.stroke();
     }
 
-    // Head, kept large relative to the body the way a cat's reads.
-    ctx.fillStyle = coat;
+    ctx.fillStyle = cream;      // chest and muzzle
     ctx.beginPath();
-    ctx.arc(s * 0.5, -s * 0.86, s * 0.29, 0, Math.PI * 2);
+    ctx.ellipse(0.48 * s, -0.46 * s, 0.22 * s, 0.20 * s, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0.06 * s, -0.32 * s, 0.36 * s, 0.10 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0.90 * s, -0.80 * s, 0.17 * s, 0.13 * s, 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    for (const side of [-1, 1]) {
+    ctx.restore();
+
+    // Nose, mouth, eye: the same face treatment as the dog, so they are clearly
+    // the same pair of hands.
+    ctx.fillStyle = pink;
+    ctx.beginPath();
+    ctx.moveTo(1.00 * s, -0.85 * s);
+    ctx.lineTo(1.07 * s, -0.85 * s);
+    ctx.lineTo(1.035 * s, -0.79 * s);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(1, s * 0.026);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(1.035 * s, -0.78 * s);
+    ctx.quadraticCurveTo(0.99 * s, -0.73 * s, 0.94 * s, -0.77 * s);
+    ctx.stroke();
+
+    // Whiskers, kept faint so they do not turn into scratches at small sizes.
+    ctx.strokeStyle = 'rgba(60, 45, 35, 0.35)';
+    ctx.lineWidth = Math.max(0.8, s * 0.016);
+    for (const dy of [-0.02, 0.04]) {
       ctx.beginPath();
-      ctx.moveTo(s * (0.5 + side * 0.2), -s * 1.02);
-      ctx.lineTo(s * (0.5 + side * 0.26), -s * 1.42);
-      ctx.lineTo(s * (0.5 + side * 0.02), -s * 1.1);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.fillStyle = 'hsl(348, 60%, 74%)';
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(s * (0.5 + side * 0.16), -s * 1.06);
-      ctx.lineTo(s * (0.5 + side * 0.2), -s * 1.29);
-      ctx.lineTo(s * (0.5 + side * 0.06), -s * 1.11);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(1.00 * s, (-0.82 + dy) * s);
+      ctx.lineTo(1.26 * s, (-0.86 + dy * 2) * s);
+      ctx.stroke();
     }
 
-    // White muzzle and chest, so it is not one flat colour against the grass.
-    ctx.fillStyle = 'rgba(255, 252, 245, 0.92)';
+    ctx.fillStyle = ink;
     ctx.beginPath();
-    ctx.ellipse(s * 0.66, -s * 0.78, s * 0.14, s * 0.11, 0, 0, Math.PI * 2);
+    ctx.ellipse(0.90 * s, -1.00 * s, 0.058 * s, 0.075 * s, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.ellipse(s * 0.3, -s * 0.4, s * 0.12, s * 0.16, 0.2, 0, Math.PI * 2);
+    ctx.arc(0.92 * s, -1.03 * s, 0.024 * s, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'hsl(20, 30%, 18%)';
+    this.drawPaw(ctx, cat, -0.40 * s, 0, coat, cream);
+    this.drawPaw(ctx, cat, 0.22 * s, 3.0, coat, cream);
+  }
+
+  // The dog's outline is one continuous path rather than a stack of ellipses:
+  // overlapping primitives are what made the earlier version read as geometric.
+  // Proportions are deliberately puppyish — a big round head, a short muzzle, a
+  // low chest and stubby legs — because that is what makes an animal read as cute.
+  dogOutline(ctx, s) {
     ctx.beginPath();
-    ctx.arc(s * 0.6, -s * 0.93, s * 0.05, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'hsl(348, 55%, 62%)';
+    ctx.moveTo(-0.60 * s, -0.34 * s);
+    ctx.bezierCurveTo(-0.80 * s, -0.44 * s, -0.78 * s, -0.74 * s, -0.54 * s, -0.80 * s); // rump
+    ctx.bezierCurveTo(-0.26 * s, -0.88 * s, 0.06 * s, -0.84 * s, 0.28 * s, -0.88 * s);   // back
+    ctx.bezierCurveTo(0.44 * s, -0.92 * s, 0.44 * s, -1.08 * s, 0.60 * s, -1.16 * s);    // neck
+    ctx.bezierCurveTo(0.76 * s, -1.26 * s, 1.00 * s, -1.20 * s, 1.06 * s, -1.02 * s);    // skull
+    ctx.bezierCurveTo(1.09 * s, -0.92 * s, 1.18 * s, -0.90 * s, 1.24 * s, -0.82 * s);    // brow to muzzle
+    ctx.bezierCurveTo(1.33 * s, -0.72 * s, 1.28 * s, -0.60 * s, 1.14 * s, -0.585 * s);   // nose, rounded
+    ctx.bezierCurveTo(1.02 * s, -0.575 * s, 0.94 * s, -0.60 * s, 0.86 * s, -0.62 * s);   // chin
+    ctx.bezierCurveTo(0.72 * s, -0.645 * s, 0.66 * s, -0.50 * s, 0.60 * s, -0.40 * s);   // throat
+    ctx.bezierCurveTo(0.52 * s, -0.285 * s, 0.10 * s, -0.255 * s, -0.20 * s, -0.28 * s); // belly
+    ctx.bezierCurveTo(-0.40 * s, -0.295 * s, -0.54 * s, -0.30 * s, -0.60 * s, -0.34 * s);
+    ctx.closePath();
+  }
+
+  // Legs bend rather than hinge, and each ends in a paw, so they do not read as
+  // sticks poking out of an ellipse.
+  drawPaw(ctx, critter, x, offset, coat, cream) {
+    const s = critter.size;
+    const swing = Math.sin(critter.phase * 1.5 + offset) * s * 0.09;
+    ctx.strokeStyle = coat;
+    ctx.lineWidth = s * 0.15;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(s * 0.72, -s * 0.82, s * 0.04, 0, Math.PI * 2);
+    ctx.moveTo(x, -s * 0.44);
+    ctx.quadraticCurveTo(x + swing * 0.4, -s * 0.24, x + swing, -s * 0.07);
+    ctx.stroke();
+    ctx.fillStyle = cream;
+    ctx.beginPath();
+    ctx.ellipse(x + swing, -s * 0.055, s * 0.105, s * 0.062, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   drawDog(ctx, dog) {
     const s = dog.size;
-    const coat = 'hsl(34, 45%, 50%)';
-    const dark = 'hsl(32, 42%, 32%)';
-    const ear = 'hsl(30, 40%, 34%)';
-    // A wagging tail is the whole point of a dog, and it doubles as the cheer.
+    const coat = 'hsl(28, 54%, 54%)';
+    const shade = 'hsl(26, 46%, 42%)';
+    const earColor = 'hsl(24, 44%, 36%)';
+    const cream = 'hsl(38, 62%, 90%)';
+    const ink = 'hsl(22, 32%, 17%)';
     const wag = Math.sin(dog.phase * (dog.cheerFor > 0 ? 8 : 3));
 
     this.drawShadow(ctx, dog);
-    this.drawLegs(ctx, dog, [-0.38, -0.18, 0.22, 0.42], dark);
 
-    ctx.strokeStyle = coat;
-    ctx.lineWidth = s * 0.13;
+    // Far legs first, in shadow, so the body sits in front of them.
+    this.drawPaw(ctx, dog, -0.30 * s, 2.1, shade, shade);
+    this.drawPaw(ctx, dog, 0.40 * s, 0.9, shade, shade);
+
+    // Tail: a tapered shape, wide at the base and pointed at the tip.
+    const tailPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(-0.56 * s, -0.68 * s);
+      ctx.quadraticCurveTo(
+        (-0.92 + wag * 0.10) * s, -0.88 * s,
+        (-0.84 + wag * 0.26) * s, -1.20 * s,
+      );
+      ctx.quadraticCurveTo(
+        (-0.70 + wag * 0.20) * s, -0.92 * s,
+        -0.44 * s, -0.62 * s,
+      );
+      ctx.closePath();
+    };
+    ctx.fillStyle = coat;
+    tailPath();
+    ctx.fill();
+    // Cream tip, the way most dogs have one. Clipped to the tail, or it floats
+    // away from the tip as a detached white blob.
+    ctx.save();
+    tailPath();
+    ctx.clip();
+    ctx.fillStyle = cream;
+    ctx.beginPath();
+    ctx.ellipse((-0.84 + wag * 0.26) * s, -1.15 * s, s * 0.12, s * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    this.dogOutline(ctx, s);
+    ctx.fillStyle = coat;
+    ctx.fill();
+
+    // Markings are clipped to the outline so nothing looks stuck on top.
+    ctx.save();
+    this.dogOutline(ctx, s);
+    ctx.clip();
+
+    ctx.fillStyle = shade;         // darker saddle over the back
+    ctx.beginPath();
+    ctx.ellipse(-0.05 * s, -0.95 * s, 0.52 * s, 0.30 * s, -0.06, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = cream;         // chest and belly
+    ctx.beginPath();
+    ctx.ellipse(0.52 * s, -0.44 * s, 0.24 * s, 0.20 * s, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0.1 * s, -0.32 * s, 0.42 * s, 0.11 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();               // cream muzzle
+    ctx.ellipse(1.10 * s, -0.70 * s, 0.24 * s, 0.16 * s, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Floppy teardrop ear, hanging along the cheek.
+    ctx.fillStyle = earColor;
+    ctx.beginPath();
+    ctx.moveTo(0.66 * s, -1.14 * s);
+    ctx.bezierCurveTo(0.50 * s, -1.10 * s, 0.44 * s, -0.86 * s, 0.52 * s, -0.68 * s);
+    ctx.bezierCurveTo(0.62 * s, -0.56 * s, 0.78 * s, -0.64 * s, 0.80 * s, -0.82 * s);
+    ctx.bezierCurveTo(0.82 * s, -0.98 * s, 0.78 * s, -1.10 * s, 0.66 * s, -1.14 * s);
+    ctx.closePath();
+    ctx.fill();
+
+    // Nose, a soft blob with a highlight rather than a flat dot.
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.ellipse(1.23 * s, -0.73 * s, 0.075 * s, 0.062 * s, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(1.21 * s, -0.76 * s, 0.026 * s, 0.02 * s, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // A smile. Cheap, and it does more for cuteness than anything else here.
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(1, s * 0.028);
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-s * 0.52, -s * 0.52);
-    ctx.quadraticCurveTo(-s * 0.76, -s * 0.82, -s * 0.62 + wag * s * 0.26, -s * 1.12);
+    ctx.moveTo(1.20 * s, -0.66 * s);
+    ctx.quadraticCurveTo(1.10 * s, -0.60 * s, 1.02 * s, -0.65 * s);
     ctx.stroke();
 
-    ctx.fillStyle = coat;
+    // Big eye, set forward, with a catchlight.
+    ctx.fillStyle = ink;
     ctx.beginPath();
-    ctx.ellipse(0, -s * 0.54, s * 0.52, s * 0.27, 0, 0, Math.PI * 2);
+    ctx.ellipse(0.98 * s, -0.94 * s, 0.062 * s, 0.072 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(1.00 * s, -0.97 * s, 0.026 * s, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head and a long snout: the snout is what separates it from the cat.
+    // Tan brow spot, the marking that gives a dog an expression.
+    ctx.fillStyle = cream;
     ctx.beginPath();
-    ctx.arc(s * 0.52, -s * 0.86, s * 0.26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(s * 0.82, -s * 0.76, s * 0.2, s * 0.13, 0.08, 0, Math.PI * 2);
+    ctx.ellipse(0.95 * s, -1.06 * s, 0.07 * s, 0.045 * s, -0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(255, 252, 245, 0.9)';
-    ctx.beginPath();
-    ctx.ellipse(s * 0.28, -s * 0.42, s * 0.13, s * 0.17, 0.15, 0, Math.PI * 2);
-    ctx.fill();
-
-    // One floppy ear, hanging.
-    ctx.fillStyle = ear;
-    ctx.beginPath();
-    ctx.ellipse(s * 0.38, -s * 0.82, s * 0.13, s * 0.28, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // A red collar reads as "somebody's dog" in one glance.
-    ctx.strokeStyle = 'hsl(2, 70%, 52%)';
-    ctx.lineWidth = s * 0.09;
-    ctx.beginPath();
-    ctx.arc(s * 0.4, -s * 0.68, s * 0.21, -0.5, 1.5);
-    ctx.stroke();
-
-    ctx.fillStyle = 'hsl(20, 25%, 15%)';
-    ctx.beginPath();
-    ctx.arc(s * 1.0, -s * 0.78, s * 0.06, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(s * 0.6, -s * 0.92, s * 0.045, 0, Math.PI * 2);
-    ctx.fill();
+    // Near legs last, in full colour, so the dog has depth.
+    this.drawPaw(ctx, dog, -0.44 * s, 0, coat, cream);
+    this.drawPaw(ctx, dog, 0.26 * s, 3.0, coat, cream);
   }
 }
