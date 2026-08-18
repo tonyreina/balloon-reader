@@ -2,6 +2,7 @@
 // Physics runs in CSS pixels; the canvas is scaled for device pixel ratio.
 
 import { Critters } from './critters.js';
+import { Dragon } from './dragon.js';
 
 const TAU = Math.PI * 2;
 
@@ -37,6 +38,8 @@ export class Scene {
     // Set while the game is helping a stuck child, so no new wildlife arrives.
     this.quiet = false;
     this.critters = new Critters(this);
+    // The dragon below the balloon is where the puff of air comes from.
+    this.dragon = new Dragon(this);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -108,14 +111,24 @@ export class Scene {
     this.velocity = Math.max(this.velocity, -impulse * 1.7);
     this.squish = 1;
     this.sway = (Math.random() - 0.5) * 0.5;
+    this.dragon.huff(power);
 
-    const count = 8 + Math.round(power * 6);
+    // The air comes out of the dragon's mouth and rises to the balloon, rather than
+    // falling out of the balloon as it used to: the cause should be visible.
+    const mouth = this.dragon.mouth;
+    const count = 16 + Math.round(power * 10);
+    const toBalloon = Math.max(1, (this.balloonY + this.radius) - mouth.y);
     for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * this.radius * 0.35;
+      // Started a short way along the jet: spawned right at the lips they piled up
+      // over the dragon's face and hid the animal doing the work.
+      const along = 0.25 + Math.random() * 0.5;
       this.puffs.push({
-        x: this.balloonX + (Math.random() - 0.5) * this.radius * 1.1,
-        y: this.balloonY + this.radius * 1.5,
-        vx: (Math.random() - 0.5) * 55,
-        vy: 70 + Math.random() * 90,
+        x: mouth.x + spread,
+        y: mouth.y - this.radius * 0.5 * along,
+        vx: spread * 2.4 + (Math.random() - 0.5) * 34,
+        // Fast enough to actually reach the balloon before fading, whatever the gap.
+        vy: -(toBalloon * (1.5 + Math.random() * 1.1)),
         life: 1,
         size: 5 + Math.random() * 11,
       });
@@ -125,6 +138,7 @@ export class Scene {
   // The ground animals hop when the child gets something right.
   cheer(strength = 1) {
     this.critters.cheer(strength);
+    this.dragon.cheer(strength);
   }
 
   celebrate() {
@@ -169,6 +183,7 @@ export class Scene {
     }
 
     this.critters.update(dt);
+    this.dragon.update(dt);
     this.squish = Math.max(0, this.squish - dt * 3.2);
     this.sway *= Math.pow(0.25, dt);
     this.time = (this.time || 0) + dt;
@@ -182,7 +197,9 @@ export class Scene {
       p.life -= dt * 1.5;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy *= Math.pow(0.5, dt);
+      // Rising air spreads and slows as it goes.
+      p.vy *= Math.pow(0.22, dt);
+      p.vx *= Math.pow(0.5, dt);
       return p.life > 0;
     });
 
@@ -218,6 +235,7 @@ export class Scene {
     }
     this.drawGround();
     this.critters.draw(ctx);
+    this.dragon.draw(ctx);
 
     for (const p of this.puffs) {
       ctx.globalAlpha = Math.max(0, p.life) * 0.55;
@@ -307,7 +325,7 @@ export class Scene {
     ctx.lineWidth = Math.max(1.4, r * 0.045);
     ctx.beginPath();
     ctx.moveTo(0, r * stretch * 1.02);
-    ctx.quadraticCurveTo(r * 0.28, r * stretch * 1.5, this.sway * r * 0.6, r * stretch * 1.9);
+    ctx.quadraticCurveTo(r * 0.2, r * stretch * 1.28, this.sway * r * 0.4, r * stretch * 1.5);
     ctx.stroke();
 
     // Body
