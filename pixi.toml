@@ -1,0 +1,85 @@
+# Cross-platform environment for Balloon Reader.
+#
+# The game itself is plain HTML, CSS and JavaScript with a vendored WebAssembly
+# recognizer, so it has no runtime dependencies beyond a browser and something to
+# serve the files. Pixi pins those tools so the project behaves the same on
+# Linux, macOS and Windows.
+#
+#   pixi run start                 play the game
+#   pixi run -e dev check          run every test
+#
+# See README.md for what each task does.
+
+[workspace]
+name = "balloon-reader"
+version = "0.1.0"
+description = "A reading game: read each word aloud to keep the balloon in the air."
+license = "Apache-2.0"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+# Serving the game is all the default environment needs to do. A parent who just
+# wants to play should not have to download a JavaScript toolchain.
+[dependencies]
+python = ">=3.10"
+
+# The speech model is ~40MB of binary data, so it is fetched rather than kept in
+# the repository. Both tasks below depend on it, so the first run pulls it and
+# every later run finds it already there.
+[tasks.fetch-model]
+cmd = "python tools/fetch_model.py"
+description = "Download the Vosk speech model (~40MB, once)"
+
+[tasks.start]
+cmd = "python serve.py 8000"
+depends-on = ["fetch-model"]
+description = "Serve the game at http://localhost:8000"
+
+[tasks.play]
+depends-on = ["start"]
+description = "Alias for start"
+
+# --- development ---------------------------------------------------------
+# Node runs the test suites. The browser tests additionally need Playwright's
+# Chromium, which `pixi run -e dev setup` installs.
+[feature.dev.dependencies]
+nodejs = ">=20"
+
+[feature.dev.tasks.setup]
+cmd = "npm install && npx playwright install chromium"
+depends-on = ["fetch-model"]
+description = "Install Playwright and its Chromium build (needed once, for the browser tests)"
+
+[feature.dev.tasks.test]
+cmd = "node tests/logic.test.mjs"
+description = "Word matching, hearts, levels and sentence flow (no browser)"
+
+[feature.dev.tasks.test-recognizer]
+cmd = "node tests/recognizer.test.mjs"
+description = "Transcript bookkeeping, unknown speech and the hint microphone gate"
+
+[feature.dev.tasks.balance]
+cmd = "node tests/balance.mjs"
+description = "Simulate the balloon physics and print the reading-pace table"
+
+[feature.dev.tasks.test-browser]
+cmd = "node tests/browser.test.mjs"
+description = "Drive the real page in Chromium: rendering, physics, layout"
+
+[feature.dev.tasks.test-speech]
+cmd = "node tests/speech.test.mjs"
+description = "Feed recorded speech to Chromium as a microphone and check recognition"
+
+[feature.dev.tasks.check]
+depends-on = ["test", "test-recognizer", "balance", "test-browser", "test-speech"]
+description = "Run every test"
+
+# Regenerating the test audio needs espeak and ffmpeg, which conda-forge does not
+# carry for every platform, so the generated files are kept in tests/audio and
+# this task is only for changing them.
+[feature.dev.tasks.fixtures]
+cmd = "bash tests/make-fixtures.sh"
+description = "Rebuild the test audio (needs system espeak and ffmpeg)"
+
+[environments]
+dev = ["dev"]

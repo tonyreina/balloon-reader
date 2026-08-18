@@ -1,0 +1,22 @@
+{
+  "name": "balloon-reader",
+  "version": "0.1.0",
+  "description": "A reading game: read each word aloud to keep the balloon in the air.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tonyreina/balloon-reader.git"
+  },
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 serve.py 8000",
+    "test": "node tests/logic.test.mjs",
+    "balance": "node tests/balance.mjs",
+    "test:browser": "node tests/browser.test.mjs",
+    "test:speech": "node tests/speech.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

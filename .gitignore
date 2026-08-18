@@ -1,0 +1,13 @@
+# Pixi's resolved environments
+.pixi/
+
+# Node modules (pinned by package-lock.json)
+node_modules/
+
+# The speech model is ~40MB of binary data: fetch it with
+#   pixi run fetch-model     (or python tools/fetch_model.py)
+models/*.tar.gz
+models/_unpacking/
+
+# Screenshots written by the browser tests
+tests/*.png

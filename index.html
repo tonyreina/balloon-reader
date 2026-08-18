@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Balloon Reader</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 20 q3 6 0 11' stroke='%235c4a44' stroke-width='1.6' fill='none'/><ellipse cx='16' cy='13' rx='11' ry='12.5' fill='%23ef3f45'/><ellipse cx='11' cy='8' rx='2.6' ry='4' fill='%23fff' opacity='.45'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <header id="hud">
+      <div class="hud-group">
+        <span id="hearts" class="hearts">❤❤❤</span>
+        <span class="pill"><span class="pill-label">Score</span><b id="score">0</b></span>
+      </div>
+      <div class="hud-group">
+        <span id="level-name" class="level-name">Level 1</span>
+      </div>
+      <div class="hud-group">
+        <span id="mic" class="mic">
+          <span id="mic-dot" class="mic-dot" data-state="off"></span>
+          <span id="mic-level" class="mic-level" style="--level: 0"></span>
+          <span id="mic-label" class="mic-label">Microphone off</span>
+        </span>
+        <button id="pause-btn" class="icon-btn" type="button" data-paused="false" aria-label="Pause">
+          <span class="ctrl-icon"></span>
+        </button>
+      </div>
+    </header>
+
+    <div id="stage">
+      <canvas id="sky"></canvas>
+      <div id="banner" class="banner" aria-live="polite"></div>
+    </div>
+
+    <footer id="reading-bar">
+      <p id="sentence" class="sentence" aria-live="polite"></p>
+      <p id="support-note" class="support-note" hidden>
+        This browser cannot listen yet — try Chrome or Edge. You can still play by
+        pressing <kbd>Space</kbd> for each word.
+      </p>
+    </footer>
+
+    <section id="start-screen" class="screen">
+      <div class="card">
+        <svg class="card-art" viewBox="0 0 64 84" aria-hidden="true">
+          <defs>
+            <radialGradient id="balloonSkin" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stop-color="#ff8f8a" />
+              <stop offset="45%" stop-color="#ef3f45" />
+              <stop offset="100%" stop-color="#b3181f" />
+            </radialGradient>
+          </defs>
+          <path d="M32 56 q6 12 0 26" fill="none" stroke="#5c4a44" stroke-width="2.5" stroke-linecap="round" />
+          <ellipse cx="32" cy="30" rx="26" ry="30" fill="url(#balloonSkin)" />
+          <path d="M27 58 h10 l-5 7 z" fill="#c22128" />
+          <ellipse cx="22" cy="19" rx="6" ry="9" fill="#fff" opacity="0.42" transform="rotate(-25 22 19)" />
+        </svg>
+        <h1>Balloon Reader</h1>
+        <p class="tagline">
+          Read each word out loud. Every word you say gives the balloon
+          a puff of air. Keep reading, keep it flying!
+        </p>
+
+        <div id="setup">
+        <div class="options">
+          <label class="field">
+            <span>Start at</span>
+            <select id="level-select">
+              <option value="1">Level 1 · First Words</option>
+              <option value="2">Level 2 · Blends</option>
+              <option value="3">Level 3 · Long Vowels</option>
+              <option value="4">Level 4 · Two Syllables</option>
+              <option value="5">Level 5 · Storytime</option>
+            </select>
+          </label>
+          <label class="field checkbox">
+            <input type="checkbox" id="gentle-toggle" checked />
+            <span>Gentle mode <small>slower fall, 5 hearts</small></span>
+          </label>
+        </div>
+
+        <button id="play-btn" class="big-btn" type="button">Start reading</button>
+        <p class="fine-print">
+          Listening happens entirely on this computer — the speech model is part of
+          the game and no audio ever leaves the machine. The first start downloads
+          about 40&nbsp;MB of speech files once. Tap any word to hear it. Grown-ups:
+          press <kbd>Space</kbd> if the microphone misses a word.
+        </p>
+        </div>
+
+        <div id="loading" hidden>
+          <p id="loading-label" class="loading-label">Getting the listener ready…</p>
+          <div id="loading-bar" class="loading-bar" style="--fraction: 0"></div>
+          <p class="fine-print">This happens once. After that it starts straight away.</p>
+        </div>
+
+        <div id="trouble" class="trouble" hidden>
+          <strong>Something needs fixing</strong>
+          <p id="trouble-text"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="over-screen" class="screen" hidden>
+      <div class="card">
+        <svg class="card-art" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="starShine" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ffe486" />
+              <stop offset="100%" stop-color="#f5a623" />
+            </linearGradient>
+          </defs>
+          <path d="M32 4 L40 24 L62 26 L45 40 L50 61 L32 49 L14 61 L19 40 L2 26 L24 24 Z"
+                fill="url(#starShine)" stroke="#e08f14" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+        <h1>Great reading!</h1>
+        <div id="over-stats" class="stats"></div>
+        <button id="again-btn" class="big-btn" type="button">Play again</button>
+      </div>
+    </section>
+    <aside id="debug" class="debug" hidden>
+      <header>What the game is hearing <small>press D to hide</small></header>
+      <pre id="debug-log"></pre>
+    </aside>
+  </div>
+
+  <script src="vendor/vosk.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
