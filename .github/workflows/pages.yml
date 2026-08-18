@@ -1,0 +1,64 @@
+# Publishes the game to GitHub Pages.
+#
+# The speech model is not in the repository (it is ~40MB of binary data), so this
+# fetches it during the build and ships it with the site. That keeps git history
+# small while still giving visitors a game that runs entirely in their browser.
+#
+# Before the first run, turn Pages on:
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+# Until that is done this workflow fails on the "configure-pages" step.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch the Vosk speech model
+        run: python tools/fetch_model.py
+
+      - name: Assemble the site
+        run: |
+          mkdir -p site
+          cp index.html site/
+          cp -r css js vendor fonts models site/
+          # Serve every file verbatim rather than running it through Jekyll.
+          touch site/.nojekyll
+          echo "site contents:"
+          du -sh site/*
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -11,3 +11,6 @@ models/_unpacking/
 
 # Screenshots written by the browser tests
 tests/*.png
+
+# Site assembled by the Pages workflow
+site/

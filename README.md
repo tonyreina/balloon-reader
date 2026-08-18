@@ -190,6 +190,32 @@ like a child; they are a test of the pipeline, not a measure of real-world
 accuracy. Regenerate them with `pixi run -e dev fixtures` (needs system `espeak`
 and `ffmpeg`).
 
+## Putting it online (GitHub Pages)
+
+The game is entirely static and every path in it is relative, so it runs from a
+project subpath such as `https://tonyreina.github.io/balloon-reader/` with no
+changes. Pages serves over HTTPS, which is a secure context, so the microphone
+works there.
+
+[.github/workflows/pages.yml](.github/workflows/pages.yml) does the deployment. It
+fetches the speech model during the build instead of storing it in git, so the
+repository stays around 9MB while the published site carries the ~46MB it needs.
+
+Turn it on once: **Settings → Pages → Build and deployment → Source: GitHub
+Actions**. Every push to `main` then republishes. Until Pages is enabled the
+workflow fails at its `configure-pages` step.
+
+Two things to know before pointing a classroom at it:
+
+- **Each new visitor downloads about 40MB** of speech model. GitHub Pages has a
+  soft bandwidth limit of 100GB a month, which is roughly 2,400 first-time
+  visitors. Returning visitors revalidate against an ETag and get a `304`, so they
+  do not download it again — unless their browser has evicted a file that big.
+- **Recognition is still local.** Hosting the page on GitHub changes nothing about
+  where the listening happens: the model runs in the visitor's own browser, and no
+  audio is transmitted. The browser will ask permission for the microphone the
+  first time, as it does on localhost.
+
 ## Third-party components
 
 - **[Vosk](https://alphacephei.com/vosk/)** and the vendored
