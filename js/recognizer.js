@@ -102,11 +102,20 @@ export class Recognizer {
     // the child never said.
     this.credited = 0;
     this.sampleRate = 16000;
+    this.kaldiRate = 0;      // the rate the current decoder was built for
+    this.target = [];        // the words it is listening for, kept for a restart
     this.grammarFailed = false;
   }
 
   get ready() {
     return Boolean(this.model);
+  }
+
+  // Actually able to hear: a model, a decoder, and a live microphone. The status
+  // used to be reported from intent, so the pill could read "Listening" while the
+  // recognizer had no stream at all.
+  get live() {
+    return Boolean(this.model && this.kaldi && this.stream?.active);
   }
 
   // Downloads and unpacks the model. Reports progress so a child is not staring
@@ -212,13 +221,19 @@ export class Recognizer {
     silence.connect(this.audioContext.destination);
 
     this.processor = processor;
-    this.onStatus('listening');
+
+    if (this.kaldi && this.kaldiRate !== this.sampleRate && this.target.length) {
+      this.setTarget(this.target);
+    }
+
+    this.onStatus(this.live ? 'listening' : 'off');
   }
 
   // Rebuilds the decoder for one sentence. Called every time a sentence loads.
   setTarget(words) {
     if (!this.model) return;
 
+    this.target = words;
     const vocabulary = grammarWords(words);
     this.replaceKaldi(vocabulary, vocabulary.join(' '));
   }
@@ -249,6 +264,7 @@ export class Recognizer {
     if (vocabulary.length && !this.grammarFailed) {
       try {
         this.kaldi = build(this.buildGrammar(vocabulary, phrase));
+        this.kaldiRate = this.sampleRate;
         return;
       } catch (error) {
         this.grammarFailed = true;
@@ -256,6 +272,7 @@ export class Recognizer {
       }
     }
     this.kaldi = build(null);
+    this.kaldiRate = this.sampleRate;
   }
 
   buildGrammar(vocabulary, phrase) {
@@ -334,9 +351,16 @@ export class Recognizer {
 
   setEnabled(value) {
     this.enabled = value;
-    this.onStatus(value ? 'listening' : 'paused');
+    if (!value) {
+      this.onStatus('paused');
+      return;
+    }
+    this.onStatus(this.live ? 'listening' : 'off');
   }
 
+  // Closes the microphone completely: the track is stopped, so the browser's
+  // recording indicator goes out. The model stays loaded, so listen() can reopen it
+  // in a moment without another download.
   stop() {
     this.enabled = false;
     if (this.processor) this.processor.onaudioprocess = null;

@@ -690,3 +690,32 @@ a.link-btn { text-decoration: none; display: inline-block; }
   .fine-print { margin-top: 0.7rem; }
   .secondary-row { margin-top: 0.7rem; }
 }
+
+/* ---------- the grown-up check ---------- */
+/* Written out in words rather than digits, so the question is itself a small reading
+   barrier to the child it is keeping out. */
+.grownup-field { align-items: center; margin: 0 auto 0.8rem; max-width: 22rem; }
+.grownup-field span { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.3rem; }
+#grownup-answer {
+  font-family: inherit;
+  font-size: 1.4rem;
+  text-align: center;
+  width: 6rem;
+  padding: 0.35rem 0.5rem;
+  border: 2px solid #d3dce2;
+  border-radius: 0.7rem;
+}
+#grownup-answer:focus { outline: 3px solid #ffd66b; border-color: #f5a623; }
+
+/* What the child will actually be asked to read, visible before Start is pressed. */
+.own-preview {
+  margin-top: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.8rem;
+  background: #f2f7fa;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.own-preview strong { display: block; color: #4a5b68; margin-bottom: 0.3rem; }
+.own-preview ul { margin: 0; padding-left: 1.1rem; color: #22303c; }
+.own-preview li { line-height: 1.5; }

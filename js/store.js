@@ -7,6 +7,7 @@
 // with an in-memory copy for the session rather than breaking.
 
 import { isFunctionWord, normalize } from './matcher.js';
+import { unsafeWordsIn } from './safe-words.js';
 
 const KEY = 'balloon-reader';
 const VERSION = 1;
@@ -183,6 +184,13 @@ export function checkCustomSentences(text, { maxWords = 14 } = {}) {
     }
     if (count > maxWords) {
       problems.push(`${at}: too long — ${count} words, keep it under ${maxWords}.`);
+      continue;
+    }
+    // Until now only the characters were checked, never the meaning: a line could be
+    // any words at all as long as it was spelled with letters. See js/safe-words.js.
+    const unsafe = unsafeWordsIn(cleaned);
+    if (unsafe.length) {
+      problems.push(`${at}: not for a young reader — "${unsafe[0]}".`);
       continue;
     }
     sentences.push(cleaned);

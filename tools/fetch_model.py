@@ -10,6 +10,7 @@ vosk-browser expects. Runs on Linux, macOS and Windows with nothing but Python.
 It does nothing if the model is already in place.
 """
 
+import hashlib
 import io
 import shutil
 import sys
@@ -20,6 +21,12 @@ from pathlib import Path
 
 MODEL = 'vosk-model-small-en-us-0.15'
 SOURCE = f'https://alphacephei.com/vosk/models/{MODEL}.zip'
+
+# The published archive, pinned. This model decides which words the game believes it
+# heard and supplies the dictionary behind everything it can transcribe, so a
+# substituted one is a content problem as much as a security one. If this check ever
+# fails, do not "fix" it by editing the hash: find out why the file changed.
+SOURCE_SHA256 = '30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498'
 REPO = Path(__file__).resolve().parent.parent
 TARGET = REPO / 'models' / f'{MODEL}.tar.gz'
 
@@ -66,6 +73,16 @@ def main() -> int:
         print(f'\ncould not download the model: {error}', file=sys.stderr)
         print(f'download {SOURCE} by hand, unzip it, and repack it as {TARGET}', file=sys.stderr)
         return 1
+
+    digest = hashlib.sha256(archive).hexdigest()
+    if digest != SOURCE_SHA256:
+        print('\nthe downloaded model is not the one this project expects', file=sys.stderr)
+        print(f'  expected sha256 {SOURCE_SHA256}', file=sys.stderr)
+        print(f'  got      sha256 {digest}', file=sys.stderr)
+        print('nothing has been unpacked. Check your connection, then check the source.',
+              file=sys.stderr)
+        return 1
+    print(f'checked sha256 {digest[:16]}…')
 
     print('unpacking')
     with zipfile.ZipFile(io.BytesIO(archive)) as zipped:

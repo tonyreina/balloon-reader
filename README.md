@@ -295,6 +295,71 @@ Level 1 gives a child six seconds a word to sound it out; level 5 asks for
 something close to fluent pace. If that curve is wrong for your reader, change
 `sink` and `lift` and re-run the balance script to see the new numbers.
 
+## Guardrails
+
+Both promises this game makes are enforced by mechanisms, not by intentions. An
+adversarial review of the project raised 59 candidate problems; what follows is what
+survived being attacked, and what was done about it.
+
+### Nothing personal leaves the device
+
+- **A Content-Security-Policy in [index.html](index.html)** is the enforcement. Its
+  load-bearing directive is `connect-src 'self'`: no `fetch`, `XMLHttpRequest`,
+  `sendBeacon`, `WebSocket` or `EventSource` can reach another host, so a future
+  mistake or a compromised dependency cannot send audio anywhere either. Measured
+  without it, five exfiltration attempts reached the network, one of them a `POST`
+  that got a real response back. With it, none do —
+  [tests/guardrails.test.mjs](tests/guardrails.test.mjs) tries all seven routes every
+  run.
+- **The microphone is closed, not muted**, when the game pauses, when the round ends,
+  and when the tab is hidden. Muting a live track leaves the browser's recording
+  indicator lit, and a parent is looking at that indicator, not at our flag. It was
+  found still open in all three states.
+- **`window.__balloon`**, the handle the tests drive, is withheld on a published copy.
+  It exposes the live `MediaStream` and every transcript so far.
+- **The vendored recognizer and the speech model are pinned** to sha256 hashes
+  ([vendor/PROVENANCE.md](vendor/PROVENANCE.md), [tools/fetch_model.py](tools/fetch_model.py)).
+  The model decides which words the game believes it heard, so a substituted one is a
+  content problem as much as a security one. A mismatch refuses the download.
+
+### Nothing objectionable reaches a child
+
+- **[js/safe-words.js](js/safe-words.js)** is one blocklist used in two places: the
+  sentences a grown-up types are rejected if they contain any of it, and the bundled
+  sentences in [js/sentences.js](js/sentences.js) are held to the same list by
+  [tests/content.test.mjs](tests/content.test.mjs). Matching is whole-word — a filter
+  that rejects "grass" and "Scunthorpe" teaches a child the computer is arbitrary —
+  and light disguises (`sh1t`, `@ss`) are undone first.
+- **A grown-up check** stands in front of the sentence editor: an arithmetic question
+  written out in words, so reading the question is itself part of the barrier. The
+  editor used to be gated on the URL alone, which is a fact about the address bar and
+  not about who is sitting at the keyboard — on a family laptop an older sibling could
+  type anything for a younger one to read aloud.
+- **Saving sentences no longer switches the game to them.** It used to select the new
+  level and persist that choice, so whatever was typed became what the next person to
+  press Start was handed. The start screen now also **shows the sentences** before
+  anyone presses Start.
+- **Nothing publishes without passing.** [.github/workflows/pages.yml](.github/workflows/pages.yml)
+  runs the content and guardrail suites and the deploy job `needs: test`. Before this,
+  a word added to the sentence list or a `<script src>` pointing at another host went
+  live within a minute with nothing having looked at it.
+
+### What the review found was already sound
+
+Worth knowing so effort goes elsewhere: local decoding is real (the WASM is a `data:`
+URI, the model is same-origin, audio reaches the worker only by `postMessage`); the
+`localhost`-only rule for custom sentences is enforced in three independent places and
+cannot be turned on by a query string; all 403 decoy words are clean, so the recognizer
+structurally cannot surface an unsafe word from the bundled levels; `speechSynthesis` is
+correctly restricted to local voices; and the store degrades gracefully on corrupt data.
+
+Three plausible-sounding worries were investigated and are **not** real: the
+full-dictionary fallback cannot print slurs to the diagnostics panel (out-of-vocabulary
+words are a Kaldi warning, not a failure, and the panel is not shown on error); the
+progress screen's `innerHTML` has no injection path (every interpolated value is an
+integer or a word already reduced to `a-z`); and `zipfile.extractall` in the model
+fetcher is not path-traversable.
+
 ## Checking the reading content
 
 The sentences are a hand-written list in [js/sentences.js](js/sentences.js). Nothing
@@ -342,6 +407,7 @@ deliberately generous:
 | [js/sentences.js](js/sentences.js) | Reading content by level, and choosing what to read next |
 | [js/store.js](js/store.js) | What is remembered: practice words, sessions, settings |
 | [js/env.js](js/env.js) | Whether this copy may accept a grown-up's own sentences |
+| [js/safe-words.js](js/safe-words.js) | The words this game will not put in front of a child |
 | [serve.py](serve.py) | Static server with the right MIME types and caching |
 | [tools/fetch_model.py](tools/fetch_model.py) | Downloads and packs the speech model |
 
@@ -361,7 +427,8 @@ Or individually:
 | `test-scene` | Balloon geometry, the dragon, and that the wildlife stays out of the way |
 | `test-store` | Practice scheduling, the session log, sentence validation, the local-only rule |
 | `test-ui` | Reading-comfort settings, the sentence editor and the progress screen |
-| `test-privacy` | Proves a whole session sends nothing to any other host |
+| `test-privacy` | A whole session sends nothing to any other host, and the mic is released |
+| `test-guardrails` | The content filter, the pinned recognizer, and the browser refusing to send anything |
 | `words` | Prints every word the game will ask a child to read, and audits the sentences |
 | `balance` | Physics simulation; prints the difficulty table above |
 | `test-browser` | Drives the real page in Chromium: rendering, physics, layout |
