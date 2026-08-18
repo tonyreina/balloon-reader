@@ -41,14 +41,26 @@ try {
 
   // Andika and wide spacing by default: the audience is children still learning
   // the letter shapes.
-  check('rounded letters chosen by default', await page.inputValue('#font-select'), 'andika');
+  const chosenFont = () => page.evaluate(() =>
+    [...document.querySelectorAll('input[name="reading-font"]')].find((r) => r.checked)?.value);
+
+  check('rounded letters chosen by default', await chosenFont(), 'andika');
+  // The whole point of the redesign: every choice is named on screen, so nobody has
+  // to open a dropdown to discover that OpenDyslexic exists.
+  check('every font is named on the start screen without opening anything',
+    await page.$$eval('#font-choice .pill b', (nodes) => nodes.map((n) => n.textContent.trim())),
+    ['Rounded', 'OpenDyslexic', 'Storybook']);
+  check('and each is shown in its own letters',
+    await page.$$eval('#font-choice .pill-sample', (nodes) =>
+      nodes.map((n) => getComputedStyle(n).fontFamily.split(',')[0].replace(/"/g, ''))),
+    ['Andika', 'OpenDyslexic', 'Baloo 2']);
   check('wide spacing on by default', await page.isChecked('#spacing-toggle'));
   check(`the sentence is set in Andika (${await readingFont()})`, await readingFont(), 'Andika');
 
   // Every choice has to actually reach the reading text, and each font must really
   // load rather than silently falling back to the next name in the stack.
   for (const [choice, expected] of [['opendyslexic', 'OpenDyslexic'], ['storybook', 'Baloo 2'], ['andika', 'Andika']]) {
-    await page.selectOption('#font-select', choice);
+    await page.click(`label.pill:has(input[value="${choice}"])`);
     await page.waitForTimeout(250);
     check(`choosing ${choice} sets the reading text in ${expected}`, await readingFont(), expected);
     // Fonts load lazily, and the sentence bar is empty before a round starts, so
@@ -61,13 +73,34 @@ try {
     check(`${expected} has a real font file behind it (${faces} face(s))`, faces > 0);
   }
 
-  await page.selectOption('#font-select', 'opendyslexic');
+  await page.click('label.pill:has(input[value="opendyslexic"])');
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.__balloon));
-  check('the choice survives a reload', await page.inputValue('#font-select'), 'opendyslexic');
+  check('the choice survives a reload', await chosenFont(), 'opendyslexic');
   check('and is applied on load', await readingFont(), 'OpenDyslexic');
   await page.screenshot({ path: `${SHOTS}/shot-9-opendyslexic.png` });
-  await page.selectOption('#font-select', 'andika');
+  await page.click('label.pill:has(input[value="andika"])');
+
+  // The controls and links were being pushed under the card's fold on a laptop.
+  console.log('\n-- everything is reachable without scrolling --');
+  for (const [w, h] of [[1280, 720], [1440, 900], [1024, 768]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(150);
+    const offscreen = await page.evaluate(() => {
+      const card = document.querySelector('#start-screen .card');
+      const box = card.getBoundingClientRect();
+      const wanted = ['#font-choice', '#play-btn', '[data-progress]', '#sentences-btn', '#level-select'];
+      return wanted.filter((selector) => {
+        const el = document.querySelector(selector);
+        if (!el || el.hidden) return false;
+        const r = el.getBoundingClientRect();
+        return r.bottom > box.bottom + 1 || r.top < box.top - 1;
+      });
+    });
+    check(`nothing hidden below the fold at ${w}x${h} (${offscreen.join(', ') || 'all visible'})`,
+      offscreen, []);
+  }
+  await page.setViewportSize({ width: 1000, height: 800 });
 
   console.log('\n-- progress, before anything has been played --');
   await page.click('[data-progress]');

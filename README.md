@@ -32,13 +32,40 @@ have opened it the wrong way.
 ## Everything stays on your computer
 
 Recognition runs locally, in a Web Worker, using [Vosk](https://alphacephei.com/vosk/)
-— the Kaldi speech engine compiled to WebAssembly. The acoustic model is served
-from this project's `models/` folder. After the one-time model download the game
-makes **no network requests at all**: no cloud speech service, no analytics, no
-web fonts. Your child's voice never leaves the machine.
+— the Kaldi speech engine compiled to WebAssembly. The acoustic model is served from
+this project's `models/` folder. Your child's voice never leaves the machine.
 
 That is a deliberate change from the browser's built-in `SpeechRecognition` API,
 which sends microphone audio to Google's servers in Chrome.
+
+This is a claim worth checking rather than trusting, so
+[tests/privacy.test.mjs](tests/privacy.test.mjs) checks it two ways: it scans the
+shipped files for anything a browser would fetch from another host on its own — a
+stylesheet, font, script, `url()`, absolute `fetch`, socket or beacon — and then
+plays a real session in Chromium with every request from the page *and its worker*
+recorded. Measured on the published site, a full session makes **20 requests, all of
+them to the game's own address**, every one a `GET`, with no socket and nothing
+uploaded. Even the WebAssembly binary is embedded as a `data:` URI inside
+[vendor/vosk.js](vendor/vosk.js), so it is not fetched at all.
+
+What that leaves, stated plainly:
+
+- **Static files are downloaded from wherever you host it.** On GitHub Pages that
+  means GitHub serves the page, scripts, fonts and the 40MB speech model, and — like
+  any web host — its logs will show your IP address, the time, and which files were
+  requested. That is the cost of hosting a page anywhere; it is not the game sending
+  anything. Run it from your own computer and even that stops.
+- **Audio is never uploaded.** The microphone stream goes to an `AudioContext`, into
+  a Web Worker by `postMessage`, and no further.
+- **Sentences are part of the download**, not fetched per round, and nothing you type
+  is transmitted.
+- **Spoken hints use local voices only.** [js/voice.js](js/voice.js) filters
+  `speechSynthesis` to voices the browser reports as `localService`, so a hint is
+  never sent to a network text-to-speech service. If a browser offers only network
+  voices, hints stay silent instead.
+- **There is no analytics, no error reporting, no fonts from a CDN, and no backend.**
+  The single external link on the page is the "Source code" link, which is inert
+  until clicked and carries `rel="noreferrer"`.
 
 ### The trick that makes it work on a young voice
 
@@ -197,7 +224,10 @@ Two settings for the reading text, defaulting to the readable choice because the
 audience is children still learning letter shapes. Both apply only to the words
 being read; the rest of the game keeps its own look.
 
-**Letters** offers three faces:
+**Letters** offers three faces, shown as three buttons on the start screen, each
+displaying `a g` in its own letters so the difference can be seen without picking
+one. (It began as a dropdown labelled "Letters", which hid the fact that the choice
+existed at all.)
 
 - **Rounded a and g** (default) — [Andika](https://software.sil.org/andika/), designed
   by SIL for beginning readers. It has a single-story `a` and `g`, the letterforms
@@ -306,6 +336,7 @@ Or individually:
 | `test-scene` | Balloon geometry, and that the wildlife stays rare and out of the way |
 | `test-store` | Practice scheduling, the session log, sentence validation, the local-only rule |
 | `test-ui` | Reading-comfort settings, the sentence editor and the progress screen |
+| `test-privacy` | Proves a whole session sends nothing to any other host |
 | `words` | Prints every word the game will ask a child to read, and audits the sentences |
 | `balance` | Physics simulation; prints the difficulty table above |
 | `test-browser` | Drives the real page in Chromium: rendering, physics, layout |
@@ -351,7 +382,9 @@ Two things to know before pointing a classroom at it:
   do not download it again — unless their browser has evicted a file that big.
 - **Recognition is still local.** Hosting the page on GitHub changes nothing about
   where the listening happens: the model runs in the visitor's own browser, and no
-  audio is transmitted. The browser will ask permission for the microphone the
+  audio is transmitted — see "Everything stays on your computer" for the measured
+  request log. What GitHub does see is what any web host sees: the IP address and
+  which files were requested. The browser will ask permission for the microphone the
   first time, as it does on localhost.
 - **Typing in your own sentences is switched off on a published copy**, because a
   shared computer keeps whatever one child typed for the next child who sits down.

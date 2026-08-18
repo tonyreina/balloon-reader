@@ -79,26 +79,38 @@
             <input type="checkbox" id="gentle-toggle" checked />
             <span>Gentle mode <small>slower fall, 5 hearts</small></span>
           </label>
-          <label class="field">
-            <span>Letters</span>
-            <select id="font-select">
-              <option value="andika">Rounded a and g</option>
-              <option value="opendyslexic">OpenDyslexic</option>
-              <option value="storybook">Storybook</option>
-            </select>
-          </label>
-          <label class="field checkbox">
+        </div>
+
+        <fieldset class="field-set" id="font-choice">
+          <legend>Letters for reading</legend>
+          <div class="pills">
+            <label class="pill">
+              <input type="radio" name="reading-font" value="andika" checked />
+              <span class="pill-sample sample-andika">a g</span>
+              <b>Rounded</b>
+            </label>
+            <label class="pill">
+              <input type="radio" name="reading-font" value="opendyslexic" />
+              <span class="pill-sample sample-opendyslexic">a g</span>
+              <b>OpenDyslexic</b>
+            </label>
+            <label class="pill">
+              <input type="radio" name="reading-font" value="storybook" />
+              <span class="pill-sample sample-storybook">a g</span>
+              <b>Storybook</b>
+            </label>
+          </div>
+          <label class="field checkbox spacing-row">
             <input type="checkbox" id="spacing-toggle" checked />
             <span>Wide spacing <small>easier to track along</small></span>
           </label>
-        </div>
+        </fieldset>
 
         <button id="play-btn" class="big-btn" type="button">Start reading</button>
         <p class="fine-print">
-          Listening happens entirely on this computer — the speech model is part of
-          the game and no audio ever leaves the machine. The first start downloads
-          about 40&nbsp;MB of speech files once. Tap any word to hear it. Grown-ups:
-          press <kbd>Space</kbd> if the microphone misses a word.
+          Listening happens on this computer; no audio leaves the machine. The first
+          start downloads about 40&nbsp;MB once. Tap a word to hear it, or press
+          <kbd>Space</kbd> if the microphone misses one.
         </p>
         </div>
 
@@ -111,6 +123,11 @@
         <div class="secondary-row">
           <button class="link-btn" type="button" data-progress>Progress</button>
           <button id="sentences-btn" class="link-btn" type="button" hidden>My sentences</button>
+          <!-- A plain link: nothing is requested from GitHub unless it is clicked,
+               and noreferrer keeps even that from carrying where it came from. -->
+          <a class="link-btn" id="source-link"
+             href="https://github.com/tonyreina/balloon-reader"
+             target="_blank" rel="noopener noreferrer">Source code</a>
         </div>
 
         <div id="trouble" class="trouble" hidden>

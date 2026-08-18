@@ -70,6 +70,10 @@ description = "Practice words, the session log, custom sentences and the local-o
 cmd = "node tests/ui.test.mjs"
 description = "Reading-comfort settings, the sentence editor and the progress screen"
 
+[feature.dev.tasks.test-privacy]
+cmd = "node tests/privacy.test.mjs"
+description = "Prove a whole session sends nothing to any other host"
+
 [feature.dev.tasks.words]
 cmd = "node tests/content.test.mjs"
 description = "Print every word the game will ask a child to read, and audit the sentences"
@@ -87,7 +91,7 @@ cmd = "node tests/speech.test.mjs"
 description = "Feed recorded speech to Chromium as a microphone and check recognition"
 
 [feature.dev.tasks.check]
-depends-on = ["test", "test-recognizer", "test-scene", "test-store", "words", "balance", "test-browser", "test-ui", "test-speech"]
+depends-on = ["test", "test-recognizer", "test-scene", "test-store", "words", "balance", "test-browser", "test-ui", "test-speech", "test-privacy"]
 description = "Run every test"
 
 # Regenerating the test audio needs espeak and ffmpeg, which conda-forge does not
