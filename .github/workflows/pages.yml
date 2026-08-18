@@ -18,6 +18,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,7 +32,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Nothing reaches a child without these passing. Before this existed, a word added
+  # to js/sentences.js or a <script src> pointing at another host went live within a
+  # minute with nothing having looked at it: both test suites were advisory, and only
+  # protected the project if somebody remembered to run them.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Install Playwright's Chromium
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Reading content is fit for a child
+        run: node tests/content.test.mjs
+
+      - name: Guardrails hold - content filter, and the browser refuses to send anything out
+        run: node tests/guardrails.test.mjs
+
+      - name: Game rules
+        run: node tests/logic.test.mjs
+
+      - name: What the game remembers
+        run: node tests/store.test.mjs
+
+      - name: Transcript handling
+        run: node tests/recognizer.test.mjs
+
+      - name: Scene and wildlife
+        run: node tests/scene.test.mjs
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -53,13 +92,17 @@ jobs:
           du -sh site/*
 
       - uses: actions/configure-pages@v6
+        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request'
         with:
           path: site
 
   deploy:
     needs: build
+    # A pull request gets the checks but never publishes.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
