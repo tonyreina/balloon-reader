@@ -36,7 +36,7 @@ const els = {
   troubleText: $('#trouble-text'),
   debug: $('#debug'),
   debugLog: $('#debug-log'),
-  lettersToggle: $('#letters-toggle'),
+  fontSelect: $('#font-select'),
   spacingToggle: $('#spacing-toggle'),
   progressButtons: document.querySelectorAll('[data-progress]'),
   sentencesBtn: $('#sentences-btn'),
@@ -55,6 +55,12 @@ const store = new Store();
 
 const ui = {
   renderSentence(words, current) {
+    // Long sentences are stepped down so they stay on one or two lines. Four lines
+    // of wrapped text is hard for a child to follow, and every line the reading bar
+    // grows is a line of sky the balloon loses.
+    const scale = words.length <= 6 ? 1 : Math.max(0.66, 1 - (words.length - 6) * 0.055);
+    els.sentence.style.setProperty('--word-scale', scale.toFixed(3));
+
     els.sentence.replaceChildren(...words.map((word, i) => {
       const span = document.createElement('button');
       span.type = 'button';
@@ -301,16 +307,24 @@ if (!window.isSecureContext) {
 }
 
 // --- settings -----------------------------------------------------------
+const READING_FONTS = ['andika', 'opendyslexic', 'storybook'];
+
 function applyComfort() {
-  document.body.classList.toggle('easy-letters', els.lettersToggle.checked);
+  for (const font of READING_FONTS) {
+    document.body.classList.toggle(`reading-${font}`, els.fontSelect.value === font);
+  }
   document.body.classList.toggle('wide-spacing', els.spacingToggle.checked);
 }
 
 function restoreSettings() {
   const saved = store.settings;
-  // Both default to on: the audience is children who are still learning the
-  // letter shapes, so the readable choice is the right default.
-  els.lettersToggle.checked = saved.easyLetters !== false;
+  // Andika and wide spacing by default: the audience is children who are still
+  // learning the letter shapes, so the readable choice is the right default.
+  // `easyLetters` is the older boolean setting, kept working for anyone who has one.
+  const font = READING_FONTS.includes(saved.readingFont)
+    ? saved.readingFont
+    : (saved.easyLetters === false ? 'storybook' : 'andika');
+  els.fontSelect.value = font;
   els.spacingToggle.checked = saved.wideSpacing !== false;
   els.gentleToggle.checked = saved.gentle !== false;
   if (saved.level) {
@@ -321,12 +335,14 @@ function restoreSettings() {
   applyComfort();
 }
 
-for (const [element, key] of [[els.lettersToggle, 'easyLetters'], [els.spacingToggle, 'wideSpacing']]) {
-  element.addEventListener('change', () => {
-    applyComfort();
-    store.saveSettings({ [key]: element.checked });
-  });
-}
+els.fontSelect.addEventListener('change', () => {
+  applyComfort();
+  store.saveSettings({ readingFont: els.fontSelect.value });
+});
+els.spacingToggle.addEventListener('change', () => {
+  applyComfort();
+  store.saveSettings({ wideSpacing: els.spacingToggle.checked });
+});
 els.gentleToggle.addEventListener('change', () => store.saveSettings({ gentle: els.gentleToggle.checked }));
 els.levelSelect.addEventListener('change', () => store.saveSettings({ level: els.levelSelect.value }));
 

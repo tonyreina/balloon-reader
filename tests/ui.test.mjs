@@ -36,22 +36,38 @@ try {
   await page.waitForFunction(() => Boolean(window.__balloon));
 
   console.log('\n-- reading comfort --');
-  // Both default on: the audience is children still learning the letter shapes.
-  check('rounded letters on by default', await page.isChecked('#letters-toggle'));
+  const readingFont = () => page.evaluate(() =>
+    getComputedStyle(document.querySelector('.sentence')).fontFamily.split(',')[0].replace(/"/g, ''));
+
+  // Andika and wide spacing by default: the audience is children still learning
+  // the letter shapes.
+  check('rounded letters chosen by default', await page.inputValue('#font-select'), 'andika');
   check('wide spacing on by default', await page.isChecked('#spacing-toggle'));
-  check('the reading text uses the teaching font',
-    await page.evaluate(() => document.body.classList.contains('easy-letters')));
+  check(`the sentence is set in Andika (${await readingFont()})`, await readingFont(), 'Andika');
 
-  const spacedFont = await page.evaluate(() => getComputedStyle(document.querySelector('.sentence')).fontFamily);
-  check(`the sentence is set in Andika (${spacedFont.split(',')[0]})`, /Andika/.test(spacedFont));
+  // Every choice has to actually reach the reading text, and each font must really
+  // load rather than silently falling back to the next name in the stack.
+  for (const [choice, expected] of [['opendyslexic', 'OpenDyslexic'], ['storybook', 'Baloo 2'], ['andika', 'Andika']]) {
+    await page.selectOption('#font-select', choice);
+    await page.waitForTimeout(250);
+    check(`choosing ${choice} sets the reading text in ${expected}`, await readingFont(), expected);
+    // Fonts load lazily, and the sentence bar is empty before a round starts, so
+    // ask for the face explicitly. An empty result means the @font-face is missing
+    // or its file does not load, and the text would silently fall back.
+    const faces = await page.evaluate(
+      (family) => document.fonts.load(`700 2rem "${family}"`).then((list) => list.length),
+      expected,
+    );
+    check(`${expected} has a real font file behind it (${faces} face(s))`, faces > 0);
+  }
 
-  await page.uncheck('#letters-toggle');
-  check('turning it off drops the class',
-    await page.evaluate(() => document.body.classList.contains('easy-letters')), false);
+  await page.selectOption('#font-select', 'opendyslexic');
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.__balloon));
-  check('and the choice survives a reload', await page.isChecked('#letters-toggle'), false);
-  await page.check('#letters-toggle');
+  check('the choice survives a reload', await page.inputValue('#font-select'), 'opendyslexic');
+  check('and is applied on load', await readingFont(), 'OpenDyslexic');
+  await page.screenshot({ path: `${SHOTS}/shot-9-opendyslexic.png` });
+  await page.selectOption('#font-select', 'andika');
 
   console.log('\n-- progress, before anything has been played --');
   await page.click('[data-progress]');

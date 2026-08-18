@@ -193,15 +193,28 @@ See [js/env.js](js/env.js).
 
 ### Reading comfort
 
-Two settings, both on by default because the audience is children still learning
-letter shapes:
+Two settings for the reading text, defaulting to the readable choice because the
+audience is children still learning letter shapes. Both apply only to the words
+being read; the rest of the game keeps its own look.
 
-- **Rounded letters** sets the reading text in [Andika](https://software.sil.org/andika/),
-  designed by SIL for beginning readers. It has a single-story `a` and `g` — the
-  letterforms children are taught to write. Most display fonts, including the Baloo 2
-  used elsewhere in the game, do not.
-- **Wide spacing** opens up letter and word spacing, which makes it easier to track
-  along a line.
+**Letters** offers three faces:
+
+- **Rounded a and g** (default) — [Andika](https://software.sil.org/andika/), designed
+  by SIL for beginning readers. It has a single-story `a` and `g`, the letterforms
+  children are taught to write. Most display fonts, including the Baloo 2 used
+  elsewhere in the game, do not.
+- **OpenDyslexic** — [OpenDyslexic](https://opendyslexic.org/) by Abbie Gonzalez,
+  whose letters are weighted at the bottom, which some readers find makes them
+  harder to flip or confuse. Offered as a choice rather than a default: the evidence
+  for it is mixed, and whether it helps a particular reader is a matter of trying it.
+- **Storybook** — the game's own Baloo 2, if a child prefers it.
+
+**Wide spacing** opens up letter and word spacing, which makes it easier to track
+along a line.
+
+Long sentences are also stepped down in size automatically, from their word count. A
+twelve-word sentence at full size wrapped onto four lines, which is hard to follow
+and left the balloon little sky; it now fits in two.
 
 ## Levels and difficulty
 
@@ -354,4 +367,6 @@ Two things to know before pointing a classroom at it:
   `tools/fetch_model.py`, not stored here.
 - **Baloo 2** in [fonts/](fonts/) — SIL Open Font License 1.1, © Ek Type.
 - **Andika** in [fonts/](fonts/) — SIL Open Font License 1.1, © SIL International.
-  Used for the reading text, for its single-story `a` and `g`.
+  The default reading font, for its single-story `a` and `g`.
+- **OpenDyslexic** in [fonts/](fonts/) — SIL Open Font License 1.1, © Abbie Gonzalez.
+  Offered as an alternative reading font.

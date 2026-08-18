@@ -4,6 +4,11 @@
 # fetches it during the build and ships it with the site. That keeps git history
 # small while still giving visitors a game that runs entirely in their browser.
 #
+# Action versions are kept current because GitHub retires the Node runtime they
+# run on: anything still targeting Node 20 is forced onto a newer one and warns.
+# All five below target Node 24, and upload-pages-artifact@v5 pulls in
+# upload-artifact@v7 internally, which is what the warning about v4 referred to.
+#
 # Before the first run, turn Pages on:
 #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
 # Until that is done this workflow fails on the "configure-pages" step.
@@ -28,9 +33,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -47,9 +52,9 @@ jobs:
           echo "site contents:"
           du -sh site/*
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -61,4 +66,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

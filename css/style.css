@@ -225,7 +225,10 @@ html, body {
 
 .word {
   font-family: inherit;
-  font-size: clamp(1.5rem, 6.2vw, 3.1rem);
+  /* --word-scale is set per sentence from its word count: a twelve-word sentence
+     at full size wraps onto four lines, which is hard for a beginning reader to
+     track and leaves the balloon almost no sky. */
+  font-size: calc(clamp(1.5rem, 6.2vw, 3.1rem) * var(--word-scale, 1));
   font-weight: 600;
   color: #7c8b97;
   background: none;
@@ -463,13 +466,41 @@ kbd {
   line-height: 1.5;
 }
 
+/* OpenDyslexic, by Abbie Gonzalez, SIL Open Font License 1.1. Its letters are
+   weighted at the bottom, which some readers find makes them harder to flip or
+   confuse. Offered as a choice rather than a default: the evidence for it is mixed,
+   and what helps one reader is a matter of trying it. */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('../fonts/opendyslexic-400-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('../fonts/opendyslexic-700-latin.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* ---------- reading comfort ---------- */
-/* Applied to the reading text only: the words a child decodes get the teaching
+/* Applied to the reading text only: the words a child decodes get the chosen
    letterforms and the extra spacing, while the rest of the game keeps its look. */
-body.easy-letters .sentence {
+body.reading-andika .sentence {
   font-family: 'Andika', 'Baloo 2', 'Trebuchet MS', system-ui, sans-serif;
 }
-body.easy-letters .word { font-weight: 700; }
+body.reading-andika .word { font-weight: 700; }
+
+body.reading-opendyslexic .sentence {
+  font-family: 'OpenDyslexic', 'Andika', 'Trebuchet MS', system-ui, sans-serif;
+}
+/* OpenDyslexic is considerably wider and heavier than the others, so a long
+   sentence is stepped down a size to keep it on one or two lines. */
+body.reading-opendyslexic .word {
+  font-weight: 400;
+  font-size: calc(clamp(1.1rem, 4.4vw, 2.1rem) * var(--word-scale, 1));
+}
+body.reading-opendyslexic .word.current { font-weight: 700; }
 
 body.wide-spacing .sentence {
   letter-spacing: 0.055em;
