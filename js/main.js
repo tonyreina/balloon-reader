@@ -2,8 +2,11 @@
 
 import { Scene } from './scene.js';
 import { Game } from './game.js';
+import { CUSTOM_INDEX } from './sentences.js';
 import { Recognizer } from './recognizer.js';
 import { say, localVoiceAvailable } from './voice.js';
+import { Store, checkCustomSentences } from './store.js';
+import { canAddOwnSentences } from './env.js';
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -33,7 +36,22 @@ const els = {
   troubleText: $('#trouble-text'),
   debug: $('#debug'),
   debugLog: $('#debug-log'),
+  lettersToggle: $('#letters-toggle'),
+  spacingToggle: $('#spacing-toggle'),
+  progressButtons: document.querySelectorAll('[data-progress]'),
+  sentencesBtn: $('#sentences-btn'),
+  sentencesScreen: $('#sentences-screen'),
+  sentencesInput: $('#sentences-input'),
+  sentencesProblems: $('#sentences-problems'),
+  sentencesSave: $('#sentences-save'),
+  sentencesCancel: $('#sentences-cancel'),
+  progressScreen: $('#progress-screen'),
+  progressBody: $('#progress-body'),
+  progressClose: $('#progress-close'),
+  progressForget: $('#progress-forget'),
 };
+
+const store = new Store();
 
 const ui = {
   renderSentence(words, current) {
@@ -93,7 +111,7 @@ const ui = {
 };
 
 const scene = new Scene(els.canvas);
-const game = new Game(scene, ui);
+const game = new Game(scene, ui, store);
 
 let recognizer = null;
 let paused = false;
@@ -238,9 +256,13 @@ async function beginPlay() {
   els.startScreen.hidden = true;
   setPaused(false);
 
+  const choice = els.levelSelect.value;
+  const own = choice === OWN_SENTENCES_VALUE && ownSentencesAllowed && store.custom.length > 0;
+  const numbered = Number.parseInt(choice, 10);
   game.start({
-    levelIndex: Number(els.levelSelect.value) - 1,
+    levelIndex: own ? CUSTOM_INDEX : Math.max(0, (Number.isFinite(numbered) ? numbered : 1) - 1),
     gentle: els.gentleToggle.checked,
+    custom: own ? store.custom : [],
   });
   recognizer.setEnabled(true);
 }
@@ -278,6 +300,164 @@ if (!window.isSecureContext) {
   );
 }
 
+// --- settings -----------------------------------------------------------
+function applyComfort() {
+  document.body.classList.toggle('easy-letters', els.lettersToggle.checked);
+  document.body.classList.toggle('wide-spacing', els.spacingToggle.checked);
+}
+
+function restoreSettings() {
+  const saved = store.settings;
+  // Both default to on: the audience is children who are still learning the
+  // letter shapes, so the readable choice is the right default.
+  els.lettersToggle.checked = saved.easyLetters !== false;
+  els.spacingToggle.checked = saved.wideSpacing !== false;
+  els.gentleToggle.checked = saved.gentle !== false;
+  if (saved.level) {
+    const wanted = String(saved.level);
+    const exists = [...els.levelSelect.options].some((option) => option.value === wanted);
+    if (exists) els.levelSelect.value = wanted;
+  }
+  applyComfort();
+}
+
+for (const [element, key] of [[els.lettersToggle, 'easyLetters'], [els.spacingToggle, 'wideSpacing']]) {
+  element.addEventListener('change', () => {
+    applyComfort();
+    store.saveSettings({ [key]: element.checked });
+  });
+}
+els.gentleToggle.addEventListener('change', () => store.saveSettings({ gentle: els.gentleToggle.checked }));
+els.levelSelect.addEventListener('change', () => store.saveSettings({ level: els.levelSelect.value }));
+
+// --- a grown-up's own sentences -----------------------------------------
+// Only offered when the game is served from this machine. See js/env.js.
+const OWN_SENTENCES_VALUE = 'own';
+const ownSentencesAllowed = canAddOwnSentences();
+
+function refreshOwnSentencesOption() {
+  const existing = els.levelSelect.querySelector(`option[value="${OWN_SENTENCES_VALUE}"]`);
+  const count = store.custom.length;
+  if (!ownSentencesAllowed || !count) {
+    existing?.remove();
+    return;
+  }
+  const option = existing || document.createElement('option');
+  option.value = OWN_SENTENCES_VALUE;
+  option.textContent = `Your own sentences (${count})`;
+  if (!existing) els.levelSelect.append(option);
+}
+
+if (ownSentencesAllowed) els.sentencesBtn.hidden = false;
+
+function openSentences() {
+  els.sentencesInput.value = store.custom.join('\n');
+  els.sentencesProblems.hidden = true;
+  els.sentencesScreen.hidden = false;
+}
+
+els.sentencesBtn.addEventListener('click', openSentences);
+els.sentencesCancel.addEventListener('click', () => { els.sentencesScreen.hidden = true; });
+
+els.sentencesSave.addEventListener('click', () => {
+  const { sentences, problems } = checkCustomSentences(els.sentencesInput.value);
+  if (problems.length) {
+    els.sentencesProblems.textContent = problems.join('\n');
+    els.sentencesProblems.hidden = false;
+    return;
+  }
+  store.saveCustom(sentences);
+  refreshOwnSentencesOption();
+  if (sentences.length) {
+    // Setting a select from script fires no change event, so the choice has to be
+    // saved here or it is forgotten on the next load.
+    els.levelSelect.value = OWN_SENTENCES_VALUE;
+    store.saveSettings({ level: OWN_SENTENCES_VALUE });
+  }
+  els.sentencesScreen.hidden = true;
+});
+
+// --- progress for the grown-up ------------------------------------------
+function renderProgress() {
+  const sessions = store.sessions;
+  const practice = store.wordsNeedingPractice();
+
+  if (!sessions.length) {
+    els.progressBody.innerHTML = '<p class="progress-empty">No finished rounds yet. '
+      + 'Play a round and the reading will show up here.</p>';
+    return;
+  }
+
+  const totals = sessions.reduce((sum, s) => ({
+    read: sum.read + (s.wordsRead || 0),
+    helped: sum.helped + (s.wordsHelped || 0),
+    sentences: sum.sentences + (s.sentencesDone || 0),
+    seconds: sum.seconds + (s.seconds || 0),
+  }), { read: 0, helped: 0, sentences: 0, seconds: 0 });
+
+  const attempted = totals.read + totals.helped;
+  const accuracy = attempted ? Math.round((totals.read / attempted) * 100) : 0;
+  const pace = totals.seconds ? Math.round((totals.read / totals.seconds) * 60) : 0;
+
+  const recent = sessions.slice(-14);
+  const tallest = Math.max(...recent.map((s) => (s.wordsRead || 0) + (s.wordsHelped || 0)), 1);
+  const bars = recent.map((s) => {
+    const read = s.wordsRead || 0;
+    const helped = s.wordsHelped || 0;
+    const when = new Date(s.at).toLocaleDateString();
+    return `<div class="bar" title="${when}: ${read} read, ${helped} needed help">`
+      + `<i class="helped" style="height:${(helped / tallest) * 100}%"></i>`
+      + `<i class="read" style="height:${(read / tallest) * 100}%"></i></div>`;
+  }).join('');
+
+  els.progressBody.innerHTML = `
+    <div class="progress-tiles">
+      <div><strong>${sessions.length}</strong><span>rounds played</span></div>
+      <div><strong>${totals.read}</strong><span>words read</span></div>
+      <div><strong>${accuracy}%</strong><span>read without help</span></div>
+      <div><strong>${pace}</strong><span>words a minute</span></div>
+    </div>
+    <div class="progress-section">
+      <h2>Each round</h2>
+      <div class="session-chart">${bars}</div>
+      <p class="chart-key">
+        <b><i class="read" style="background:var(--read)"></i>read alone</b>
+        <b><i class="helped" style="background:#e8b93f"></i>needed help</b>
+      </p>
+    </div>
+    <div class="progress-section">
+      <h2>Words to practise</h2>
+      ${practice.length
+        ? `<ul class="practice-list">${practice.map((entry) =>
+            `<li>${entry.word}<small>${entry.helped}×</small></li>`).join('')}</ul>
+           <p class="fine-print">The game brings these back on their own, in sentences,
+           when they are due. Little words like "the" and "is" are left out — the
+           microphone mishears those more often than a child does.</p>`
+        : '<p class="progress-empty">Nothing needing practice. Every word was read alone.</p>'}
+    </div>`;
+}
+
+for (const button of els.progressButtons) {
+  button.addEventListener('click', () => {
+    renderProgress();
+    els.progressScreen.hidden = false;
+  });
+}
+els.progressClose.addEventListener('click', () => { els.progressScreen.hidden = true; });
+els.progressForget.addEventListener('click', () => {
+  const ok = window.confirm(
+    'Forget all saved progress, practice words, settings and your own sentences on '
+    + 'this computer? This cannot be undone.',
+  );
+  if (!ok) return;
+  store.clearAll();
+  restoreSettings();
+  refreshOwnSentencesOption();
+  renderProgress();
+});
+
+refreshOwnSentencesOption();
+restoreSettings();
 setMicStatus('off');
 
 // Handle for the browser tests in tests/.

@@ -1,18 +1,8 @@
 // Game rules: read the sentence aloud, each correct word puffs the balloon up.
 
-import { matches, isFiller } from './matcher.js';
-import { LEVELS, sentenceAt } from './sentences.js';
+import { matches, isFiller, isFunctionWord } from './matcher.js';
+import { LEVELS, levelAt, pickSentence, CUSTOM_INDEX } from './sentences.js';
 import { say } from './voice.js';
-
-// Recognizers routinely swallow unstressed words. If a child clearly moved on
-// to the next word, credit the little word instead of stalling the game.
-const FUNCTION_WORDS = new Set([
-  'a', 'an', 'the', 'is', 'to', 'in', 'on', 'of', 'and', 'at', 'it', 'my',
-  'his', 'her', 'was', 'are', 'for', 'we', 'he', 'she', 'i', 'you',
-]);
-
-const isFunctionWord = (word) =>
-  FUNCTION_WORDS.has(word.toLowerCase().replace(/[^a-z']/g, ''));
 
 const SENTENCES_PER_LEVEL = 4;
 const HINT_DELAY = 5.5;     // seconds stuck on a word before we read it aloud
@@ -23,16 +13,28 @@ const HINT_REPEAT = 6;
 const HINTS_BEFORE_HELP = 2;
 const HELP_DELAY = 5;
 
+// Used when no store is supplied, so the game runs the same with nothing to
+// remember (and so tests need not stub persistence).
+const FORGETFUL = {
+  noteWord() {},
+  dueWords() { return new Set(); },
+  endSession() {},
+};
+
 export class Game {
-  constructor(scene, ui) {
+  constructor(scene, ui, store = FORGETFUL) {
     this.scene = scene;
     this.ui = ui;
+    this.store = store;
     this.running = false;
   }
 
-  start({ levelIndex = 0, gentle = false } = {}) {
+  start({ levelIndex = 0, gentle = false, custom = [] } = {}) {
     this.levelIndex = levelIndex;
+    this.custom = custom;
     this.sentenceIndex = 0;
+    this.recent = [];          // the last few sentences, so none repeats at once
+    this.startedAt = Date.now();
     this.completedThisLevel = 0;
     this.gentle = gentle;
     this.hearts = gentle ? 5 : 3;
@@ -49,14 +51,24 @@ export class Game {
   }
 
   applyLevel() {
-    const level = LEVELS[Math.min(this.levelIndex, LEVELS.length - 1)];
+    const level = levelAt(this.levelIndex, this.custom);
     this.scene.sink = level.sink * (this.gentle ? 0.6 : 1);
     this.scene.lift = level.lift * (this.gentle ? 1.25 : 1);
     this.ui.setLevelName(level.name);
   }
 
   loadSentence() {
-    const text = sentenceAt(this.levelIndex, this.sentenceIndex);
+    // Prefer a sentence containing words the child has needed help with and that
+    // are due for another go; otherwise carry on through the level in order.
+    const text = pickSentence({
+      levelIndex: this.levelIndex,
+      custom: this.custom,
+      dueWords: this.store.dueWords(),
+      recent: this.recent,
+      cursor: this.sentenceIndex,
+    });
+    if (!text) return;
+    this.recent = [text, ...this.recent].slice(0, 3);
     this.words = text.split(/\s+/).map((word) => ({ text: word, state: 'pending' }));
     this.index = 0;
     this.sinceProgress = 0;
@@ -138,6 +150,8 @@ export class Game {
     this.sinceProgress = 0;
     this.hintsGiven = 0;
 
+    this.store.noteWord(word.text, { helped });
+
     // Longer words are harder, so they lift a little more. A helped word lifts
     // less: it keeps the balloon flying without rewarding it as a read word.
     const power = (1 + Math.min(word.text.length, 10) * 0.035) * (helped ? 0.6 : 1);
@@ -164,7 +178,8 @@ export class Game {
     this.scene.cheer(2.6);
     this.ui.renderStats(this);
 
-    const levellingUp = this.completedThisLevel >= SENTENCES_PER_LEVEL
+    const levellingUp = this.levelIndex !== CUSTOM_INDEX
+      && this.completedThisLevel >= SENTENCES_PER_LEVEL
       && this.levelIndex < LEVELS.length - 1;
     this.ui.flashBanner(levellingUp ? 'Level up!' : 'Nice reading!');
     this.pendingLevelUp = levellingUp;
@@ -187,12 +202,27 @@ export class Game {
     this.ui.renderStats(this);
     if (this.hearts <= 0) {
       this.running = false;
+      this.recordSession();
       this.ui.showGameOver(this);
       return;
     }
     this.ui.flashBanner('Try that sentence again!');
     this.transition = 1.6;
     this.retryPending = true;
+  }
+
+  // Kept for the grown-up's progress screen.
+  recordSession() {
+    this.store.endSession({
+      seconds: Math.round((Date.now() - this.startedAt) / 1000),
+      level: this.levelIndex === CUSTOM_INDEX ? 'own' : this.levelIndex + 1,
+      gentle: this.gentle,
+      sentencesDone: this.sentencesDone,
+      wordsRead: this.wordsRead,
+      wordsHelped: this.wordsHelped,
+      bestStreak: this.bestStreak,
+      score: this.score,
+    });
   }
 
   update(dt) {

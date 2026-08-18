@@ -93,12 +93,18 @@ const averageWordLength = (level) => {
 };
 const lengths = LEVELS.map(averageWordLength);
 console.log(`      average word length by level: ${lengths.map((l) => l.toFixed(2)).join(' -> ')}`);
-// Non-decreasing rather than increasing: levels 2 and 3 are separated by the
-// phonics pattern they teach (consonant blends, then long vowels), not by word
-// length, and their averages are within 0.01 of each other. Demanding growth here
-// would only tempt someone into padding level 3 with longer words for no reason.
-check('word length never drops as levels go up',
-  lengths.every((length, i) => i === 0 || length >= lengths[i - 1]));
+// Adjacent levels are NOT required to grow, because some are separated by the
+// phonics pattern they teach rather than by length: level 3 is long vowels, and
+// long-vowel words ("kite", "cake", "ripe") are short by nature, so it can sit
+// below level 2 on this measure and still be harder to read. Requiring growth
+// between neighbours would only tempt someone into padding a level with longer
+// words to satisfy the number. What must hold is the overall climb.
+check(`level 1 has the shortest words (${lengths[0].toFixed(2)})`,
+  lengths[0], Math.min(...lengths));
+check(`the last level has the longest (${lengths.at(-1).toFixed(2)})`,
+  lengths.at(-1), Math.max(...lengths));
+check('word length climbs over any two levels',
+  lengths.every((length, i) => i < 2 || length > lengths[i - 2]));
 
 const longest = LEVELS.map((level) => Math.max(...level.sentences.map((s) => words(s).length)));
 console.log(`      longest sentence by level:    ${longest.join(' -> ')} words`);

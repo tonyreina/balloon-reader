@@ -62,6 +62,14 @@ description = "Transcript bookkeeping, unknown speech and the hint microphone ga
 cmd = "node tests/scene.test.mjs"
 description = "Balloon geometry, and that the ambient wildlife stays out of the way"
 
+[feature.dev.tasks.test-store]
+cmd = "node tests/store.test.mjs"
+description = "Practice words, the session log, custom sentences and the local-only rule"
+
+[feature.dev.tasks.test-ui]
+cmd = "node tests/ui.test.mjs"
+description = "Reading-comfort settings, the sentence editor and the progress screen"
+
 [feature.dev.tasks.words]
 cmd = "node tests/content.test.mjs"
 description = "Print every word the game will ask a child to read, and audit the sentences"
@@ -79,7 +87,7 @@ cmd = "node tests/speech.test.mjs"
 description = "Feed recorded speech to Chromium as a microphone and check recognition"
 
 [feature.dev.tasks.check]
-depends-on = ["test", "test-recognizer", "test-scene", "words", "balance", "test-browser", "test-speech"]
+depends-on = ["test", "test-recognizer", "test-scene", "test-store", "words", "balance", "test-browser", "test-ui", "test-speech"]
 description = "Run every test"
 
 # Regenerating the test audio needs espeak and ffmpeg, which conda-forge does not

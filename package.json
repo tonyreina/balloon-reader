@@ -12,6 +12,8 @@
   "scripts": {
     "start": "python3 serve.py 8000",
     "test": "node tests/logic.test.mjs",
+    "test:store": "node tests/store.test.mjs",
+    "test:ui": "node tests/ui.test.mjs",
     "words": "node tests/content.test.mjs",
     "test:scene": "node tests/scene.test.mjs",
     "balance": "node tests/balance.mjs",

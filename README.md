@@ -147,11 +147,69 @@ asserts every part of it:
 - **Never if unwanted:** no wildlife at all when the browser asks for reduced
   motion.
 
+## What the game remembers
+
+Everything below is kept in this browser's localStorage on the device it is played
+on. Nothing is uploaded, there is no account, and **Forget everything** on the
+progress screen deletes all of it. In private browsing, or where storage is blocked,
+the game keeps going without remembering anything rather than refusing to play.
+
+### Practice for the words they got wrong
+
+Words the game had to give away come back on their own. Each one rests for a while
+and then becomes due again — two minutes, ten minutes, a day, three days, a week,
+stepping up each time it is read correctly and dropping straight back to due when it
+is not. When a sentence is chosen, one containing due words wins over the next in
+sequence, so practice is targeted while **every sentence stays a real sentence**;
+stringing a child's missed words together would make nonsense, which is the last
+thing a beginning reader needs.
+
+Little words — `the`, `a`, `is`, `my` — are deliberately never added to the practice
+list. The recognizer mishears those far more often than a child does, so a list
+built from them would be a list of the microphone's weaknesses rather than the
+reader's.
+
+### Progress, for the grown-up
+
+The **Progress** screen shows rounds played, words read, the share read without
+help, pace in words a minute, a bar per round split into read-alone and
+needed-help, and the words currently due for practice.
+
+### Your own sentences
+
+A child's reading book from school beats any list I could write, so sentences can be
+typed in — one per line, letters and apostrophes only, punctuation stripped, digits
+refused. They then appear as their own choice in the level menu.
+
+**This is only offered when the game is served from the machine it is played on**
+(`localhost`, or a `.local` name). On any published copy — GitHub Pages included —
+the feature is hidden, and no URL flag turns it on. The reason is not that one
+visitor could see another's sentences: localStorage is private to a single browser
+on a single origin, so nothing typed on one device can reach another. The reason is
+the shared device. On a classroom or library computer, whatever one child types is
+still there for the next child who sits down, and the person accountable for what a
+child is asked to read aloud should be the person who owns the computer it runs on.
+See [js/env.js](js/env.js).
+
+### Reading comfort
+
+Two settings, both on by default because the audience is children still learning
+letter shapes:
+
+- **Rounded letters** sets the reading text in [Andika](https://software.sil.org/andika/),
+  designed by SIL for beginning readers. It has a single-story `a` and `g` — the
+  letterforms children are taught to write. Most display fonts, including the Baloo 2
+  used elsewhere in the game, do not.
+- **Wide spacing** opens up letter and word spacing, which makes it easier to track
+  along a line.
+
 ## Levels and difficulty
 
 Five levels, four sentences each before promotion, from CVC words and sight words
-up to full storybook sentences. Edit [js/sentences.js](js/sentences.js) to use
-your own — the levels are plain arrays of strings.
+up to full storybook sentences. Within a level the game works through the sentences
+in order, except when one of them contains a word that is due for practice — see
+"What the game remembers". Edit [js/sentences.js](js/sentences.js) to change the
+content; the levels are plain arrays of strings.
 
 Each level sets `sink` (how much of the sky the balloon loses per second of
 silence) and `lift` (how much one correct word gains back), both as fractions of
@@ -169,6 +227,21 @@ numbers mean in practice, from `pixi run -e dev balance`:
 Level 1 gives a child six seconds a word to sound it out; level 5 asks for
 something close to fluent pace. If that curve is wrong for your reader, change
 `sink` and `lift` and re-run the balance script to see the new numbers.
+
+## Checking the reading content
+
+The sentences are a hand-written list in [js/sentences.js](js/sentences.js). Nothing
+is generated, fetched or randomised at runtime, so that file is the only place words
+come from and it can be read end to end in a couple of minutes.
+
+`pixi run -e dev words` is the shortcut. It prints **every distinct word the game
+will ever ask a child to read**, grouped by the level it first appears in, so the
+whole vocabulary can be reviewed at a glance rather than by reading forty sentences.
+It also checks the things that are easy to break when editing the list: letters and
+apostrophes only, capitalised, no trailing punctuation, all unique, level 1 kept
+short, and difficulty that climbs. There is a not-for-children word list too, but
+treat that as a tripwire for future edits, not a filter — it cannot judge tone or
+context.
 
 ## Being fair to a young reader
 
@@ -198,7 +271,9 @@ deliberately generous:
 | [js/decoys.js](js/decoys.js) | Decoy vocabulary that keeps the grammar honest |
 | [js/voice.js](js/voice.js) | Local-only text-to-speech for hints |
 | [js/matcher.js](js/matcher.js) | Forgiving word matching |
-| [js/sentences.js](js/sentences.js) | Reading content by level |
+| [js/sentences.js](js/sentences.js) | Reading content by level, and choosing what to read next |
+| [js/store.js](js/store.js) | What is remembered: practice words, sessions, settings |
+| [js/env.js](js/env.js) | Whether this copy may accept a grown-up's own sentences |
 | [serve.py](serve.py) | Static server with the right MIME types and caching |
 | [tools/fetch_model.py](tools/fetch_model.py) | Downloads and packs the speech model |
 
@@ -216,11 +291,15 @@ Or individually:
 | `test` | Word matching, hearts, levels, sentence flow, the never-stuck rule |
 | `test-recognizer` | Transcript bookkeeping: re-hypothesised partials, `[unk]`, the hint gate |
 | `test-scene` | Balloon geometry, and that the wildlife stays rare and out of the way |
+| `test-store` | Practice scheduling, the session log, sentence validation, the local-only rule |
+| `test-ui` | Reading-comfort settings, the sentence editor and the progress screen |
+| `words` | Prints every word the game will ask a child to read, and audits the sentences |
 | `balance` | Physics simulation; prints the difficulty table above |
 | `test-browser` | Drives the real page in Chromium: rendering, physics, layout |
 | `test-speech` | **Feeds recorded speech to Chromium as a microphone** and checks what the game credits, including the schwa "the" |
 
-`test`, `test-recognizer`, `test-scene` and `balance` need nothing but Node. The browser
+`test`, `test-recognizer`, `test-scene`, `test-store`, `words` and `balance` need
+nothing but Node. The browser
 tests start `serve.py` themselves, so they work as a single command on all three
 operating systems.
 
@@ -261,6 +340,9 @@ Two things to know before pointing a classroom at it:
   where the listening happens: the model runs in the visitor's own browser, and no
   audio is transmitted. The browser will ask permission for the microphone the
   first time, as it does on localhost.
+- **Typing in your own sentences is switched off on a published copy**, because a
+  shared computer keeps whatever one child typed for the next child who sits down.
+  Run the game locally to use that. See "Your own sentences" above.
 
 ## Third-party components
 
@@ -271,3 +353,5 @@ Two things to know before pointing a classroom at it:
 - **`vosk-model-small-en-us-0.15`** — Apache-2.0, © Alpha Cephei Inc. Fetched by
   `tools/fetch_model.py`, not stored here.
 - **Baloo 2** in [fonts/](fonts/) — SIL Open Font License 1.1, © Ek Type.
+- **Andika** in [fonts/](fonts/) — SIL Open Font License 1.1, © SIL International.
+  Used for the reading text, for its single-story `a` and `g`.

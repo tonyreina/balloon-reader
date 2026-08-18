@@ -1,3 +1,21 @@
+/* Andika, by SIL International, SIL Open Font License 1.1. Chosen for the reading
+   text because it uses the letterforms children are taught to write: a single-story
+   "a" and "g", which most display fonts (including Baloo 2 below) do not have. */
+@font-face {
+  font-family: 'Andika';
+  src: url('../fonts/andika-400-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+@font-face {
+  font-family: 'Andika';
+  src: url('../fonts/andika-700-latin.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212;
+}
+
 /* Self-hosted so the game works offline and makes no external requests.
    Baloo 2 by Ek Type, SIL Open Font License 1.1. */
 @font-face {
@@ -444,3 +462,139 @@ kbd {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   line-height: 1.5;
 }
+
+/* ---------- reading comfort ---------- */
+/* Applied to the reading text only: the words a child decodes get the teaching
+   letterforms and the extra spacing, while the rest of the game keeps its look. */
+body.easy-letters .sentence {
+  font-family: 'Andika', 'Baloo 2', 'Trebuchet MS', system-ui, sans-serif;
+}
+body.easy-letters .word { font-weight: 700; }
+
+body.wide-spacing .sentence {
+  letter-spacing: 0.055em;
+  gap: 0.2em 0.7em;
+}
+body.wide-spacing .word { padding: 0 0.14em; }
+
+/* ---------- extra screens ---------- */
+.card-wide { width: min(44rem, 100%); text-align: left; }
+.card-wide h1 { text-align: center; }
+
+.secondary-row {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-top: 1rem;
+}
+
+.link-btn {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4a6b86;
+  background: none;
+  border: none;
+  border-bottom: 2px solid rgba(74, 107, 134, 0.35);
+  padding: 0.1rem 0.1rem;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.link-btn.danger { color: #b3181f; border-bottom-color: rgba(179, 24, 31, 0.35); }
+
+.button-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+  margin-top: 1.2rem;
+}
+
+#sentences-input {
+  width: 100%;
+  font-family: 'Andika', 'Baloo 2', system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid #d3dce2;
+  border-radius: 0.8rem;
+  background: #fff;
+  resize: vertical;
+}
+#sentences-input:focus { outline: 3px solid #ffd66b; border-color: #f5a623; }
+
+.sentence-problems {
+  margin: 0.7rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.8rem;
+  background: #fff2f2;
+  border: 2px solid #f5c2c4;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: #8f1318;
+}
+
+/* ---------- progress ---------- */
+.progress-empty { text-align: center; color: #6b7b88; margin: 1.4rem 0; }
+
+.progress-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.2rem;
+}
+.progress-tiles div { background: #f2f7fa; border-radius: 0.9rem; padding: 0.7rem 0.4rem; text-align: center; }
+.progress-tiles strong { display: block; font-size: 1.5rem; color: var(--brand); }
+.progress-tiles span { font-size: 0.78rem; color: #6b7b88; }
+
+.progress-section { margin-bottom: 1.3rem; }
+.progress-section h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #4a5b68;
+}
+
+/* One bar per session: read words in green, given-away words in amber. */
+.session-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  height: 5.5rem;
+  padding: 0.4rem 0.2rem 0;
+  border-bottom: 2px solid #d3dce2;
+}
+.session-chart .bar {
+  flex: 1 1 0;
+  /* The bars must be full height for their children's percentage heights to mean
+     anything: with align-items:flex-end above, a bar would otherwise be auto-height
+     and every bar inside it would collapse to nothing. */
+  height: 100%;
+  min-width: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 0.25rem 0.25rem 0 0;
+  overflow: hidden;
+  background: #eef2f5;
+}
+.session-chart .bar i { display: block; }
+.session-chart .bar .read { background: var(--read); }
+.session-chart .bar .helped { background: #e8b93f; }
+.chart-key { display: flex; gap: 1rem; margin: 0.5rem 0 0; font-size: 0.8rem; color: #6b7b88; }
+.chart-key b { font-weight: 600; }
+.chart-key i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 0.2rem; margin-right: 0.3rem; }
+
+.practice-list { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.practice-list li {
+  font-family: 'Andika', 'Baloo 2', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  background: #fff5e0;
+  border: 2px solid #f0d79a;
+  border-radius: 0.6rem;
+  padding: 0.2rem 0.6rem;
+}
+.practice-list li small { font-weight: 600; color: #96794a; margin-left: 0.35rem; font-size: 0.75em; }

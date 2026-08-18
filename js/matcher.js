@@ -23,6 +23,20 @@ HOMOPHONE_GROUPS.forEach((group, index) => {
   for (const word of group) HOMOPHONE_KEY.set(word, index);
 });
 
+// Unstressed words that recognizers routinely swallow. They matter for two
+// different jobs: the game credits them when a child has audibly moved on, and
+// the practice list ignores them — a missed "the" is usually the microphone's
+// failure, not the child's, and a practice list full of "a", "is" and "the" would
+// be a list of the recogniser's weaknesses rather than the reader's.
+export const FUNCTION_WORDS = new Set([
+  'a', 'an', 'the', 'is', 'to', 'in', 'on', 'of', 'and', 'at', 'it', 'my',
+  'his', 'her', 'was', 'are', 'for', 'we', 'he', 'she', 'i', 'you',
+]);
+
+export function isFunctionWord(word) {
+  return FUNCTION_WORDS.has(normalize(word));
+}
+
 // Noises the recognizer reports while a child thinks out loud.
 const FILLERS = new Set(['um', 'uh', 'er', 'erm', 'hmm', 'mm', 'mmm', 'ah', 'huh']);
 

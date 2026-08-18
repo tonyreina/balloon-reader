@@ -79,6 +79,14 @@
             <input type="checkbox" id="gentle-toggle" checked />
             <span>Gentle mode <small>slower fall, 5 hearts</small></span>
           </label>
+          <label class="field checkbox">
+            <input type="checkbox" id="letters-toggle" checked />
+            <span>Rounded letters <small>the a and g children write</small></span>
+          </label>
+          <label class="field checkbox">
+            <input type="checkbox" id="spacing-toggle" checked />
+            <span>Wide spacing <small>easier to track along</small></span>
+          </label>
         </div>
 
         <button id="play-btn" class="big-btn" type="button">Start reading</button>
@@ -94,6 +102,11 @@
           <p id="loading-label" class="loading-label">Getting the listener ready…</p>
           <div id="loading-bar" class="loading-bar" style="--fraction: 0"></div>
           <p class="fine-print">This happens once. After that it starts straight away.</p>
+        </div>
+
+        <div class="secondary-row">
+          <button class="link-btn" type="button" data-progress>Progress</button>
+          <button id="sentences-btn" class="link-btn" type="button" hidden>My sentences</button>
         </div>
 
         <div id="trouble" class="trouble" hidden>
@@ -118,8 +131,44 @@
         <h1>Great reading!</h1>
         <div id="over-stats" class="stats"></div>
         <button id="again-btn" class="big-btn" type="button">Play again</button>
+        <div class="secondary-row">
+          <button class="link-btn" type="button" data-progress>Progress</button>
+        </div>
       </div>
     </section>
+    <section id="sentences-screen" class="screen" hidden>
+      <div class="card card-wide">
+        <h1>My sentences</h1>
+        <p class="tagline">
+          Type the sentences you want your child to read — one on each line. Their
+          reading book from school is a good place to start.
+        </p>
+        <textarea id="sentences-input" rows="9" spellcheck="false"
+          placeholder="The dog sat on the step&#10;We went to the park&#10;My red bike is fast"></textarea>
+        <p id="sentences-problems" class="sentence-problems" hidden></p>
+        <p class="fine-print">
+          Letters and apostrophes only, at least two words per line. These are saved
+          only on this computer and are never sent anywhere. Unusual words and names
+          may be recognised less reliably than everyday ones.
+        </p>
+        <div class="button-row">
+          <button id="sentences-save" class="big-btn" type="button">Save</button>
+          <button id="sentences-cancel" class="link-btn" type="button">Back</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="progress-screen" class="screen" hidden>
+      <div class="card card-wide">
+        <h1>Progress</h1>
+        <div id="progress-body"></div>
+        <div class="button-row">
+          <button id="progress-close" class="big-btn" type="button">Back</button>
+          <button id="progress-forget" class="link-btn danger" type="button">Forget everything</button>
+        </div>
+      </div>
+    </section>
+
     <aside id="debug" class="debug" hidden>
       <header>What the game is hearing <small>press D to hide</small></header>
       <pre id="debug-log"></pre>

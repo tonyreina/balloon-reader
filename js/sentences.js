@@ -9,8 +9,8 @@
 export const LEVELS = [
   {
     name: 'Level 1 · First Words',
-    sink: 0.041,
-    lift: 0.110,
+    sink: 0.041816,
+    lift: 0.110816,
     sentences: [
       'I can see the sun',
       'The cat is on my lap',
@@ -34,7 +34,7 @@ export const LEVELS = [
       'She spilled milk on the step',
       'Please help me plant the seed',
       'The truck went past our school',
-      'Grand dad and I clap and sing',
+      'Granddad and I dance and sing',
     ],
   },
   {
@@ -42,7 +42,7 @@ export const LEVELS = [
     sink: 0.087,
     lift: 0.092,
     sentences: [
-      'The white kite flew over the lake',
+      'The green kite flew over the lake',
       'I made a cake for my mom',
       'Nine green beans grow in the rain',
       'He rode his bike home in time',
@@ -74,7 +74,7 @@ export const LEVELS = [
     sentences: [
       'The curious fox followed a butterfly through the tall grass',
       'Every evening the lighthouse blinked across the dark water',
-      'Marcus discovered an enormous footprint beside the river',
+      'Tony discovered an enormous footprint beside the river',
       'The children whispered because the baby was finally asleep',
       'Thunder rumbled while the family shared warm soup together',
       'Her favorite library book was about ancient volcanoes',
@@ -84,7 +84,71 @@ export const LEVELS = [
   },
 ];
 
-export function sentenceAt(levelIndex, sentenceIndex) {
-  const level = LEVELS[Math.min(levelIndex, LEVELS.length - 1)];
+export const CUSTOM_LEVEL = {
+  name: 'Your own sentences',
+  // Middle-of-the-road difficulty: a grown-up's own sentences could be anything,
+  // so the balloon is forgiving rather than tuned to a reading level.
+  sink: 0.06,
+  lift: 0.10,
+  sentences: [],
+};
+
+export function levelAt(levelIndex, custom = []) {
+  if (levelIndex === CUSTOM_INDEX) {
+    return { ...CUSTOM_LEVEL, sentences: custom };
+  }
+  return LEVELS[Math.min(Math.max(levelIndex, 0), LEVELS.length - 1)];
+}
+
+// Level index that means "the sentences a grown-up typed in".
+export const CUSTOM_INDEX = -1;
+
+const wordsOf = (sentence) =>
+  sentence.toLowerCase().split(/\s+/).map((word) => word.replace(/[^a-z']/g, '')).filter(Boolean);
+
+// Picks the next sentence for a level.
+//
+// Rather than marching through the list in order, this prefers a sentence
+// containing words the child has needed help with and that are due for another
+// go. That keeps practice targeted while every sentence stays a real sentence —
+// stringing a child's missed words together would make nonsense, which is the
+// last thing a beginning reader needs.
+//
+// `recent` is the handful just shown, so the same sentence does not come round
+// twice in a row, and `cursor` provides the plain sequential order to fall back on
+// when nothing is due.
+export function pickSentence({ levelIndex, custom = [], dueWords = new Set(), recent = [], cursor = 0 }) {
+  const level = levelAt(levelIndex, custom);
+  const pool = level.sentences;
+  if (!pool.length) return null;
+
+  // A sentence containing the most words that are due for another go wins.
+  if (dueWords.size) {
+    let best = null;
+    let bestCount = 0;
+    for (const sentence of pool) {
+      if (recent.includes(sentence)) continue;
+      const hits = new Set(wordsOf(sentence).filter((word) => dueWords.has(word)));
+      if (hits.size > bestCount) {
+        bestCount = hits.size;
+        best = sentence;
+      }
+    }
+    if (best) return best;
+  }
+
+  // Otherwise straight through the level in order, stepping over anything just
+  // shown. Walking forward from the cursor keeps that order intact — filtering the
+  // pool first would renumber it and scramble the sequence.
+  for (let step = 0; step < pool.length; step++) {
+    const candidate = pool[(cursor + step) % pool.length];
+    if (!recent.includes(candidate)) return candidate;
+  }
+  return pool[cursor % pool.length];
+}
+
+export function sentenceAt(levelIndex, sentenceIndex, custom = []) {
+  const level = levelAt(levelIndex, custom);
+  if (!level.sentences.length) return null;
   return level.sentences[sentenceIndex % level.sentences.length];
 }
