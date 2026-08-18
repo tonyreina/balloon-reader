@@ -153,6 +153,30 @@ moves on. No child is ever trapped on a word their microphone refuses to hear.
   five hearts. Turn it off for older or more confident readers.
 - **Press D** for the diagnostics panel: what the recognizer heard, word by word.
 
+## The dragon
+
+A purple dragon hovers below the balloon, and it is where the puff of air comes
+from. When a child reads a word it huffs: the head tips back, the jaw opens, the
+wings beat down and a jet of air rises from its mouth to the balloon. Finishing a
+sentence sets it off properly.
+
+This is not decoration. The puff particles are emitted from the dragon's mouth
+rather than from under the balloon, so what a child sees and what the game does are
+the same event — [tests/scene.test.mjs](tests/scene.test.mjs) asserts that every
+particle starts at the mouth, travels upwards and begins below the balloon.
+
+It patrols from one side of the balloon to the other rather than hanging in one
+spot, turning to face the balloon as it crosses. The turn is eased rather than
+snapped, so mid-turn it is genuinely edge-on and reads as turning round instead of
+flipping.
+
+It is drawn in [js/dragon.js](js/dragon.js) as real anatomy — a serpentine neck,
+membrane wings on finger struts, overlapping belly plates, four clawed limbs, a
+spaded tail, a dorsal ridge — with proportions that keep it a hatchling rather than
+a wyvern: an oversized skull, a short snout and a big gold eye. The finest detail is
+skipped when it is drawn small, because at forty pixels belly plates and wing struts
+stop being detail and become dirt.
+
 ## The wildlife
 
 Birds and butterflies cross the sky, and a caterpillar, cat or dog wanders the
@@ -310,6 +334,7 @@ deliberately generous:
 | [js/game.js](js/game.js) | Rules: words, hearts, levels, hints, helping out |
 | [js/scene.js](js/scene.js) | Canvas sky, balloon physics and rendering |
 | [js/critters.js](js/critters.js) | The birds, butterflies and ground animals |
+| [js/dragon.js](js/dragon.js) | The dragon that breathes the balloon aloft |
 | [js/recognizer.js](js/recognizer.js) | Local speech recognition via Vosk |
 | [js/decoys.js](js/decoys.js) | Decoy vocabulary that keeps the grammar honest |
 | [js/voice.js](js/voice.js) | Local-only text-to-speech for hints |
@@ -333,7 +358,7 @@ Or individually:
 | --- | --- |
 | `test` | Word matching, hearts, levels, sentence flow, the never-stuck rule |
 | `test-recognizer` | Transcript bookkeeping: re-hypothesised partials, `[unk]`, the hint gate |
-| `test-scene` | Balloon geometry, and that the wildlife stays rare and out of the way |
+| `test-scene` | Balloon geometry, the dragon, and that the wildlife stays out of the way |
 | `test-store` | Practice scheduling, the session log, sentence validation, the local-only rule |
 | `test-ui` | Reading-comfort settings, the sentence editor and the progress screen |
 | `test-privacy` | Proves a whole session sends nothing to any other host |

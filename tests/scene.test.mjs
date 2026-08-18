@@ -133,9 +133,16 @@ console.log('\n-- nothing new arrives while a child is stuck --');
   run(scene, 300);
   check('a quiet scene stays empty', scene.critters.count, 0);
 
+  // Whether anything ARRIVES, not whether anything happens to be on screen at the
+  // final frame: a creature crosses in well under this window, so checking the last
+  // frame failed about a third of the time even though the wildlife had come back.
   scene.quiet = false;
-  run(scene, 120);
-  check('and fills again once the child is moving', scene.critters.count > 0);
+  let arrived = false;
+  for (let i = 0; i < 60 * 120 && !arrived; i++) {
+    scene.update(1 / 60);
+    if (scene.critters.count > 0) arrived = true;
+  }
+  check('and it comes back once the child is moving again', arrived);
 }
 
 console.log('\n-- reduced motion means no motion --');
@@ -190,6 +197,108 @@ console.log('\n-- everything can actually be drawn --');
     check(`a ${kind} draws without error`, threw, null);
     check(`a ${kind} actually paints something`, ctx.calls.fill + ctx.calls.stroke > 0);
   }
+}
+
+console.log('\n-- the dragon under the balloon --');
+{
+  const { scene } = makeScene();
+  const dragon = scene.dragon;
+  run(scene, 1);
+
+  check('it hangs below the balloon, not on top of it', dragon.y > scene.balloonY);
+  check('with a gap to breathe across',
+    dragon.mouth.y > scene.balloonY + scene.radius);
+
+  // Over a patrol it must visit both sides, and face the balloon from each.
+  let sawLeft = false;
+  let sawRight = false;
+  let facedRight = false;
+  let facedLeft = false;
+  let everAbove = false;
+  for (let i = 0; i < 60 * 40; i++) {
+    scene.update(1 / 60);
+    scene.velocity = 0;                       // hold the balloon still
+    const offset = dragon.x - scene.balloonX;
+    if (offset < -dragon.size * 0.8) { sawLeft = true; if (dragon.facing > 0.9) facedRight = true; }
+    if (offset > dragon.size * 0.8) { sawRight = true; if (dragon.facing < -0.9) facedLeft = true; }
+    if (dragon.y < scene.balloonY) everAbove = true;
+  }
+  check('it patrols to the left of the balloon', sawLeft);
+  check('and to the right of it', sawRight);
+  check('facing right while it is on the left', facedRight);
+  check('and facing left while it is on the right', facedLeft);
+  check('it never ends up above the balloon', everAbove, false);
+
+  // The mouth is mirrored with the dragon, so the breath always starts on the side
+  // nearest the balloon rather than out of the back of its head.
+  dragon.facing = 1;
+  const facingRight = dragon.mouth.x;
+  dragon.facing = -1;
+  check('the mouth swaps sides when it turns', facingRight > dragon.mouth.x);
+}
+
+console.log('\n-- the puff comes out of the dragon --');
+{
+  const { scene } = makeScene();
+  run(scene, 1);
+  scene.puffs.length = 0;
+  const mouth = scene.dragon.mouth;
+
+  scene.puff(1);
+  check('a puff makes the dragon huff', scene.dragon.huffT > 0.9);
+  check('and produces air', scene.puffs.length > 8);
+
+  // Every particle must start at the dragon's mouth, not at the balloon: the whole
+  // point is that the cause of the lift is visible.
+  const strays = scene.puffs.filter((p) =>
+    Math.abs(p.x - mouth.x) > scene.radius || p.y > mouth.y + scene.radius * 0.5);
+  check(`every particle starts at the mouth (${scene.puffs.length - strays.length}/${scene.puffs.length})`,
+    strays.length, 0);
+  check('the air travels upwards, towards the balloon',
+    scene.puffs.every((p) => p.vy < 0));
+  check('and starts below the balloon',
+    scene.puffs.every((p) => p.y > scene.balloonY));
+
+  run(scene, 2);
+  check('the huff settles again', scene.dragon.huffT, 0);
+  check('and the air clears', scene.puffs.length, 0);
+
+  scene.cheer(2.6);
+  check('finishing a sentence sets it off again', scene.dragon.cheerT > 0);
+}
+
+console.log('\n-- the dragon can be drawn --');
+{
+  for (const [label, huff, facing] of [
+    ['at rest facing right', 0, 1],
+    ['mid-huff facing right', 1, 1],
+    ['mid-huff facing left', 1, -1],
+    ['mid-turn', 0.5, 0.02],
+    ['blinking', 0, 1],
+  ]) {
+    const { scene, ctx } = makeScene();
+    run(scene, 0.5);
+    scene.dragon.huffT = huff;
+    scene.dragon.facing = facing;
+    if (label === 'blinking') scene.dragon.blinkT = 0.1;
+    let threw = null;
+    try {
+      scene.render();
+    } catch (error) {
+      threw = error.message;
+    }
+    check(`draws ${label}`, threw, null);
+    check(`paints something ${label}`, ctx.calls.fill + ctx.calls.stroke > 0);
+  }
+
+  // Small screens draw a simplified dragon; it still has to draw.
+  const { scene, ctx } = makeScene(320, 380);
+  run(scene, 0.5);
+  scene.dragon.huffT = 1;
+  let threw = null;
+  try { scene.render(); } catch (error) { threw = error.message; }
+  check('draws on a small screen', threw, null);
+  check('and still paints', ctx.calls.fill > 0);
 }
 
 console.log('\n-- wildlife does not disturb the balloon --');
