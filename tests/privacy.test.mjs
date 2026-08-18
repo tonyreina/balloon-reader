@@ -13,12 +13,11 @@
 
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, relative } from 'node:path';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { ensureServer } from './server.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repo = resolve(here, '..');
 const BASE = process.env.URL || 'http://localhost:8000';
 
 let failures = 0;
@@ -28,57 +27,9 @@ function check(label, actual, expected = true) {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${ok ? '' : `  got ${JSON.stringify(actual)}`}`);
 }
 
-// --- 1. static scan -----------------------------------------------------
-console.log('\n-- nothing in the source pulls from another host --');
-{
-  const files = ['index.html', 'css/style.css', ...readdirSync(resolve(repo, 'js')).map((f) => `js/${f}`)];
-
-  // Each pattern is something the browser acts on without being asked.
-  const patterns = [
-    [/\bsrc\s*=\s*["']https?:\/\//gi, 'src= pointing at another host'],
-    [/<link\b[^>]*\bhref\s*=\s*["']https?:\/\//gi, '<link> to another host'],
-    [/@import\s+(url\()?["']?https?:\/\//gi, 'CSS @import from another host'],
-    [/\burl\(\s*["']?https?:\/\//gi, 'CSS url() from another host'],
-    [/\bfetch\(\s*["'`]https?:\/\//gi, 'fetch() of an absolute URL'],
-    [/new\s+WebSocket\s*\(/gi, 'WebSocket'],
-    [/new\s+EventSource\s*\(/gi, 'EventSource'],
-    [/sendBeacon\s*\(/gi, 'sendBeacon'],
-    [/\bnew\s+XMLHttpRequest\b/gi, 'XMLHttpRequest'],
-    [/\bimport\s*\(\s*["'`]https?:\/\//gi, 'dynamic import from another host'],
-    [/googletagmanager|google-analytics|gtag\(|plausible|posthog|sentry/gi, 'analytics or error reporting'],
-  ];
-
-  const found = [];
-  for (const file of files) {
-    const path = resolve(repo, file);
-    if (!existsSync(path)) continue;
-    // Comments name upstream projects and licences; strip them before scanning so
-    // documentation cannot fail the test and cannot hide a real reference either.
-    const text = readFileSync(path, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .replace(/^\s*\/\/.*$/gm, ' ')
-      .replace(/<!--[\s\S]*?-->/g, ' ');
-    for (const [pattern, what] of patterns) {
-      for (const match of text.matchAll(pattern)) {
-        found.push(`${file}: ${what} — ${match[0].slice(0, 60)}`);
-      }
-    }
-  }
-  check('no automatically-fetched external resource in the shipped files', found, []);
-
-  // The one link out is a link, which is fine, and it must not leak the referrer.
-  const html = readFileSync(resolve(repo, 'index.html'), 'utf8');
-  const links = [...html.matchAll(/<a\b[^>]*href\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>/gi)];
-  check(`the only external links are plain <a> links (${links.length})`, links.length >= 1);
-  check('and every one is noreferrer',
-    links.filter((m) => !/rel\s*=\s*["'][^"']*noreferrer/i.test(m[0])).map((m) => m[1]), []);
-
-  // Fonts and the speech model must be served from this project, not a CDN.
-  const css = readFileSync(resolve(repo, 'css/style.css'), 'utf8');
-  const fontUrls = [...css.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)].map((m) => m[1]);
-  check(`every font is local (${fontUrls.length})`,
-    fontUrls.filter((url) => /^https?:/.test(url)), []);
-}
+// The static scan for externally-fetched resources lives in tests/guardrails.test.mjs
+// so that it runs in CI, where this test's browser half cannot: that half needs the
+// 40MB speech model. Keeping one copy means they cannot disagree.
 
 // --- 2. a real session --------------------------------------------------
 console.log('\n-- a whole session, watching every request --');

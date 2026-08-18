@@ -340,9 +340,22 @@ survived being attacked, and what was done about it.
   press Start was handed. The start screen now also **shows the sentences** before
   anyone presses Start.
 - **Nothing publishes without passing.** [.github/workflows/pages.yml](.github/workflows/pages.yml)
-  runs the content and guardrail suites and the deploy job `needs: test`. Before this,
-  a word added to the sentence list or a `<script src>` pointing at another host went
-  live within a minute with nothing having looked at it.
+  runs the content and guardrail suites, and `deploy` declares `needs: test`. Pull
+  requests are checked but never published. Before this, a word added to the sentence
+  list or a `<script src>` pointing at another host went live within a minute with
+  nothing having looked at it.
+
+  The gate is verified by tampering rather than assumed. Against a clean checkout it
+  publishes; against each of these it does not:
+
+  | change | blocked by |
+  | --- | --- |
+  | an unsuitable word added to a sentence | content |
+  | an analytics script from another host | guardrails |
+  | the vendored recognizer altered | guardrails |
+  | the Content-Security-Policy removed | guardrails |
+  | the policy loosened to allow any host | guardrails |
+  | the content filter disabled in `store.js` | guardrails |
 
 ### What the review found was already sound
 
