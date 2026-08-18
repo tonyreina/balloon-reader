@@ -531,6 +531,7 @@ body.wide-spacing .word { padding: 0 0.14em; }
   cursor: pointer;
 }
 .link-btn:hover { color: var(--ink); border-bottom-color: var(--ink); }
+a.link-btn { text-decoration: none; display: inline-block; }
 .link-btn.danger { color: #b3181f; border-bottom-color: rgba(179, 24, 31, 0.35); }
 
 .button-row {
@@ -629,3 +630,63 @@ body.wide-spacing .word { padding: 0 0.14em; }
   padding: 0.2rem 0.6rem;
 }
 .practice-list li small { font-weight: 600; color: #96794a; margin-left: 0.35rem; font-size: 0.75em; }
+
+/* ---------- choosing the reading letters ---------- */
+/* This started as a dropdown labelled "Letters" whose closed state read "Rounded
+   a and g". Nothing on screen said "OpenDyslexic", so there was no way to know the
+   choice existed. Each option now shows itself, in its own font, using the two
+   letters that actually differ between them. */
+.field-set {
+  border: 2px solid #e4ebf0;
+  border-radius: 0.9rem;
+  padding: 0.5rem 0.8rem 0.7rem;
+  margin: 0 0 1rem;
+}
+.field-set legend {
+  padding: 0 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #4a5b68;
+}
+
+.pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.pill {
+  flex: 1 1 6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.3rem 0.35rem;
+  border: 2px solid #d3dce2;
+  border-radius: 0.7rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.pill input { position: absolute; opacity: 0; pointer-events: none; }
+.pill b { font-size: 0.78rem; font-weight: 700; color: #5c6b78; }
+.pill:hover { border-color: #9fb4c2; }
+.pill:has(input:checked) { border-color: var(--brand); background: #fff3f3; }
+.pill:has(input:checked) b { color: var(--brand); }
+.pill:has(input:focus-visible) { outline: 3px solid #ffd66b; }
+
+/* The sample is the point: "a g" in the face being offered. */
+.pill-sample { font-size: 1.5rem; line-height: 1.1; color: var(--ink); }
+.sample-andika { font-family: 'Andika', system-ui, sans-serif; font-weight: 700; }
+.sample-opendyslexic { font-family: 'OpenDyslexic', system-ui, sans-serif; font-size: 1.25rem; }
+.sample-storybook { font-family: 'Baloo 2', system-ui, sans-serif; font-weight: 800; }
+
+.spacing-row { margin-top: 0.6rem; }
+
+/* A laptop at 720px tall left the buttons under the card's fold, so the card is
+   kept tighter at short viewport heights. */
+@media (max-height: 780px) {
+  .card { padding: clamp(0.9rem, 2.5vw, 1.5rem) clamp(1.1rem, 4vw, 2.2rem); }
+  .card-art { width: clamp(2.2rem, 7vw, 3rem); }
+  .card h1 { font-size: clamp(1.5rem, 5vw, 2.1rem); margin-bottom: 0.3rem; }
+  .tagline { margin-bottom: 0.8rem; font-size: 1rem; }
+  .options { margin-bottom: 0.7rem; }
+  .fine-print { margin-top: 0.7rem; }
+  .secondary-row { margin-top: 0.7rem; }
+}

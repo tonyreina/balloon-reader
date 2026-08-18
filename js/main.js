@@ -36,7 +36,7 @@ const els = {
   troubleText: $('#trouble-text'),
   debug: $('#debug'),
   debugLog: $('#debug-log'),
-  fontSelect: $('#font-select'),
+  fontRadios: document.querySelectorAll('input[name="reading-font"]'),
   spacingToggle: $('#spacing-toggle'),
   progressButtons: document.querySelectorAll('[data-progress]'),
   sentencesBtn: $('#sentences-btn'),
@@ -309,9 +309,15 @@ if (!window.isSecureContext) {
 // --- settings -----------------------------------------------------------
 const READING_FONTS = ['andika', 'opendyslexic', 'storybook'];
 
+function chosenFont() {
+  for (const radio of els.fontRadios) if (radio.checked) return radio.value;
+  return 'andika';
+}
+
 function applyComfort() {
-  for (const font of READING_FONTS) {
-    document.body.classList.toggle(`reading-${font}`, els.fontSelect.value === font);
+  const font = chosenFont();
+  for (const name of READING_FONTS) {
+    document.body.classList.toggle(`reading-${name}`, name === font);
   }
   document.body.classList.toggle('wide-spacing', els.spacingToggle.checked);
 }
@@ -324,7 +330,7 @@ function restoreSettings() {
   const font = READING_FONTS.includes(saved.readingFont)
     ? saved.readingFont
     : (saved.easyLetters === false ? 'storybook' : 'andika');
-  els.fontSelect.value = font;
+  for (const radio of els.fontRadios) radio.checked = radio.value === font;
   els.spacingToggle.checked = saved.wideSpacing !== false;
   els.gentleToggle.checked = saved.gentle !== false;
   if (saved.level) {
@@ -335,10 +341,12 @@ function restoreSettings() {
   applyComfort();
 }
 
-els.fontSelect.addEventListener('change', () => {
-  applyComfort();
-  store.saveSettings({ readingFont: els.fontSelect.value });
-});
+for (const radio of els.fontRadios) {
+  radio.addEventListener('change', () => {
+    applyComfort();
+    store.saveSettings({ readingFont: chosenFont() });
+  });
+}
 els.spacingToggle.addEventListener('change', () => {
   applyComfort();
   store.saveSettings({ wideSpacing: els.spacingToggle.checked });
