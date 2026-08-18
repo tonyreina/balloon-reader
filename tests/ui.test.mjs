@@ -115,7 +115,37 @@ try {
   // any published copy; tests/store.test.mjs covers that rule for every hostname.
   check('the button is offered on a local copy', await page.isVisible('#sentences-btn'));
 
+  // Nothing but the URL used to stand between an older sibling and the editor.
   await page.click('#sentences-btn');
+  check('a grown-up check comes first', await page.isVisible('#grownup-screen'));
+  check('and the editor is not open yet', await page.isHidden('#sentences-screen'));
+
+  await page.fill('#grownup-answer', '1');
+  await page.click('#grownup-ok');
+  check('a wrong answer is refused', await page.isVisible('#grownup-screen'));
+  check('and says so', await page.isVisible('#grownup-problem'));
+
+  // The sum is written out in words, which is itself part of the barrier.
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+    'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+    'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  const question = await page.textContent('#grownup-sum');
+  const [, a, b] = question.match(/is (\w+) plus (\w+)/);
+  check(`the question is written in words ("${question}")`, WORDS.includes(a) && WORDS.includes(b));
+  await page.fill('#grownup-answer', String(WORDS.indexOf(a) + WORDS.indexOf(b)));
+  await page.click('#grownup-ok');
+  check('the right answer opens the editor', await page.isVisible('#sentences-screen'));
+
+  await page.click('#sentences-cancel');
+  await page.click('#sentences-btn');
+  await page.click('#grownup-cancel');
+  check('backing out of the check leaves the editor shut', await page.isHidden('#sentences-screen'));
+
+  await page.click('#sentences-btn');
+  const q2 = await page.textContent('#grownup-sum');
+  const [, c, d] = q2.match(/is (\w+) plus (\w+)/);
+  await page.fill('#grownup-answer', String(WORDS.indexOf(c) + WORDS.indexOf(d)));
+  await page.click('#grownup-ok');
   check('the editor opens', await page.isVisible('#sentences-screen'));
 
   await page.fill('#sentences-input', 'I have 3 cats\nThe dog sat on the step');
@@ -131,12 +161,36 @@ try {
   check('and appear as a choice',
     await page.$eval('#level-select', (select) =>
       [...select.options].some((option) => /Your own sentences \(2\)/.test(option.textContent))));
-  check('and are selected ready to play', await page.inputValue('#level-select'), 'own');
+
+  // Saving used to switch to the new level and persist it, so whatever was typed
+  // became what the next person to press Start was handed, with nobody choosing it.
+  check('but saving does not switch the game to them',
+    await page.inputValue('#level-select') === 'own', false);
+
+  await page.selectOption('#level-select', 'own');
+  check('choosing them shows what the child will read', await page.isVisible('#own-preview'));
+  check('listing every sentence',
+    await page.$$eval('#own-preview-list li', (n) => n.map((x) => x.textContent)),
+    ['The dog sat on the step', 'We went to the park']);
   await page.screenshot({ path: `${SHOTS}/shot-7-sentences.png` });
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.__balloon));
   check('they survive a reload', await page.inputValue('#level-select'), 'own');
+  check('and the preview is there before Start is pressed', await page.isVisible('#own-preview'));
+
+  // Nothing objectionable can be saved, whoever gets past the check.
+  await page.click('#sentences-btn');
+  const q3 = await page.textContent('#grownup-sum');
+  const [, e, f] = q3.match(/is (\w+) plus (\w+)/);
+  await page.fill('#grownup-answer', String(WORDS.indexOf(e) + WORDS.indexOf(f)));
+  await page.click('#grownup-ok');
+  await page.fill('#sentences-input', 'You are stupid and nobody likes you');
+  await page.click('#sentences-save');
+  check('an unkind sentence is refused', await page.isVisible('#sentences-problems'));
+  check('naming what was wrong with it',
+    /not for a young reader/.test(await page.textContent('#sentences-problems')));
+  await page.click('#sentences-cancel');
 
   console.log('\n-- playing a grown-up\'s own sentences --');
   await page.click('#play-btn');

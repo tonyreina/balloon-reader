@@ -6,7 +6,7 @@ import { CUSTOM_INDEX } from './sentences.js';
 import { Recognizer } from './recognizer.js';
 import { say, localVoiceAvailable } from './voice.js';
 import { Store, checkCustomSentences } from './store.js';
-import { canAddOwnSentences } from './env.js';
+import { canAddOwnSentences, isLocalCopy } from './env.js';
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -49,6 +49,14 @@ const els = {
   progressBody: $('#progress-body'),
   progressClose: $('#progress-close'),
   progressForget: $('#progress-forget'),
+  ownPreview: $('#own-preview'),
+  ownPreviewList: $('#own-preview-list'),
+  grownupScreen: $('#grownup-screen'),
+  grownupSum: $('#grownup-sum'),
+  grownupAnswer: $('#grownup-answer'),
+  grownupProblem: $('#grownup-problem'),
+  grownupOk: $('#grownup-ok'),
+  grownupCancel: $('#grownup-cancel'),
 };
 
 const store = new Store();
@@ -112,7 +120,9 @@ const ui = {
       <div><strong>${game.bestStreak}</strong><span>best streak</span></div>
       ${game.wordsHelped ? `<div><strong>${game.wordsHelped}</strong><span>needed help</span></div>` : ''}`;
     els.overScreen.hidden = false;
+    // The round is over; there is nothing left to listen to.
     recognizer?.setEnabled(false);
+    recognizer?.stop();
   },
 };
 
@@ -209,7 +219,22 @@ function buildRecognizer() {
   });
 }
 
+let starting = false;
+
 async function beginPlay() {
+  // Two taps on Start, or Space during the 40MB first download, used to run this
+  // twice: the second call saw a half-built recognizer, skipped setup and began a
+  // round that could not hear anything.
+  if (starting) return;
+  starting = true;
+  try {
+    await startRound();
+  } finally {
+    starting = false;
+  }
+}
+
+async function startRound() {
   els.overScreen.hidden = true;
   els.trouble.hidden = true;
 
@@ -228,6 +253,7 @@ async function beginPlay() {
         + 'reload this page.',
         `model load failed: ${error.message}`,
       );
+      recognizer = null;   // so trying again really tries again
       els.loading.hidden = true;
       els.setup.hidden = false;
       return;
@@ -248,6 +274,7 @@ async function beginPlay() {
             + 'You can still play with the <kbd>Space</kbd> bar.',
         `getUserMedia failed: ${error.name}: ${error.message}`,
       );
+      recognizer = null;
       els.loading.hidden = true;
       els.setup.hidden = false;
       return;
@@ -273,12 +300,39 @@ async function beginPlay() {
   recognizer.setEnabled(true);
 }
 
-function setPaused(value) {
+// Pausing, finishing and leaving the tab all close the microphone rather than
+// merely ignoring it. Muting a live track leaves the browser's recording indicator
+// lit, which for a game that promises a child's voice stays on the device is the
+// wrong thing to show a parent. The model stays in memory, so coming back is instant.
+async function setPaused(value) {
   paused = value;
   els.pauseBtn.dataset.paused = String(value);
   els.pauseBtn.setAttribute('aria-label', value ? 'Resume' : 'Pause');
-  recognizer?.setEnabled(!value);
+  if (!recognizer) return;
+
+  if (value) {
+    recognizer.setEnabled(false);
+    recognizer.stop();
+    return;
+  }
+  try {
+    await recognizer.listen();
+  } catch (error) {
+    debug(`could not reopen the microphone: ${error.message}`);
+  }
+  recognizer.setEnabled(true);
 }
+
+// Leaving the tab, closing the laptop, switching apps on a tablet.
+document.addEventListener('visibilitychange', () => {
+  if (!recognizer) return;
+  if (document.hidden) {
+    recognizer.setEnabled(false);
+    recognizer.stop();
+  } else if (!paused && els.startScreen.hidden && els.overScreen.hidden) {
+    recognizer.listen().then(() => recognizer.setEnabled(true)).catch(() => {});
+  }
+});
 
 els.playBtn.addEventListener('click', beginPlay);
 els.againBtn.addEventListener('click', beginPlay);
@@ -352,7 +406,10 @@ els.spacingToggle.addEventListener('change', () => {
   store.saveSettings({ wideSpacing: els.spacingToggle.checked });
 });
 els.gentleToggle.addEventListener('change', () => store.saveSettings({ gentle: els.gentleToggle.checked }));
-els.levelSelect.addEventListener('change', () => store.saveSettings({ level: els.levelSelect.value }));
+els.levelSelect.addEventListener('change', () => {
+  store.saveSettings({ level: els.levelSelect.value });
+  refreshOwnPreview();
+});
 
 // --- a grown-up's own sentences -----------------------------------------
 // Only offered when the game is served from this machine. See js/env.js.
@@ -374,13 +431,76 @@ function refreshOwnSentencesOption() {
 
 if (ownSentencesAllowed) els.sentencesBtn.hidden = false;
 
+// A grown-up check in front of anything that changes what a child reads.
+//
+// The sentence editor was gated on the URL, which is a fact about the address bar and
+// not about who is sitting at the keyboard. On the family laptop where a parent
+// started the game, an older sibling could open it, type anything, and it became the
+// pre-selected level for the younger one. This is the usual arithmetic gate: written
+// out in words so that reading the question is itself part of the barrier, and it
+// keeps out the child it is meant to keep out without pretending to be security.
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+  'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+  'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+
+function askGrownUp() {
+  return new Promise((resolve) => {
+    const left = 3 + Math.floor(Math.random() * 6);
+    const right = 4 + Math.floor(Math.random() * 6);
+    els.grownupSum.textContent = `What is ${NUMBER_WORDS[left]} plus ${NUMBER_WORDS[right]}?`;
+    els.grownupProblem.hidden = true;
+    els.grownupAnswer.value = '';
+    els.grownupScreen.hidden = false;
+    els.grownupAnswer.focus();
+
+    const finish = (passed) => {
+      els.grownupScreen.hidden = true;
+      els.grownupOk.removeEventListener('click', onOk);
+      els.grownupCancel.removeEventListener('click', onCancel);
+      els.grownupAnswer.removeEventListener('keydown', onKey);
+      resolve(passed);
+    };
+    const onOk = () => {
+      const given = els.grownupAnswer.value.trim().toLowerCase();
+      const ok = given === String(left + right) || given === NUMBER_WORDS[left + right];
+      if (ok) finish(true);
+      else {
+        els.grownupProblem.hidden = false;
+        els.grownupAnswer.value = '';
+        els.grownupAnswer.focus();
+      }
+    };
+    const onCancel = () => finish(false);
+    const onKey = (event) => { if (event.key === 'Enter') onOk(); };
+
+    els.grownupOk.addEventListener('click', onOk);
+    els.grownupCancel.addEventListener('click', onCancel);
+    els.grownupAnswer.addEventListener('keydown', onKey);
+  });
+}
+
+// What the child will actually be asked to read, on the start screen, before anyone
+// presses Start. Previously the sentences were never shown outside the editor.
+function refreshOwnPreview() {
+  const showing = els.levelSelect.value === OWN_SENTENCES_VALUE && store.custom.length > 0;
+  els.ownPreview.hidden = !showing;
+  if (!showing) return;
+  els.ownPreviewList.replaceChildren(...store.custom.map((sentence) => {
+    const item = document.createElement('li');
+    item.textContent = sentence;   // never innerHTML: this is text somebody typed
+    return item;
+  }));
+}
+
 function openSentences() {
   els.sentencesInput.value = store.custom.join('\n');
   els.sentencesProblems.hidden = true;
   els.sentencesScreen.hidden = false;
 }
 
-els.sentencesBtn.addEventListener('click', openSentences);
+els.sentencesBtn.addEventListener('click', async () => {
+  if (await askGrownUp()) openSentences();
+});
 els.sentencesCancel.addEventListener('click', () => { els.sentencesScreen.hidden = true; });
 
 els.sentencesSave.addEventListener('click', () => {
@@ -392,12 +512,10 @@ els.sentencesSave.addEventListener('click', () => {
   }
   store.saveCustom(sentences);
   refreshOwnSentencesOption();
-  if (sentences.length) {
-    // Setting a select from script fires no change event, so the choice has to be
-    // saved here or it is forgotten on the next load.
-    els.levelSelect.value = OWN_SENTENCES_VALUE;
-    store.saveSettings({ level: OWN_SENTENCES_VALUE });
-  }
+  refreshOwnPreview();
+  // Deliberately does NOT select the new level. Saving used to switch to it and
+  // persist that choice, so whatever was typed became what the next person to press
+  // Start was given, without anyone choosing it.
   els.sentencesScreen.hidden = true;
 });
 
@@ -477,12 +595,18 @@ els.progressForget.addEventListener('click', () => {
   store.clearAll();
   restoreSettings();
   refreshOwnSentencesOption();
+  refreshOwnPreview();
   renderProgress();
 });
 
 refreshOwnSentencesOption();
 restoreSettings();
+refreshOwnPreview();
 setMicStatus('off');
 
-// Handle for the browser tests in tests/.
-window.__balloon = { game, scene, get recognizer() { return recognizer; }, beginPlay, debug, debugHistory };
+// Handle for the browser tests, which all run against localhost. Withheld on a
+// published copy: it exposes the live MediaStream and every transcript so far, and
+// nothing on the site needs it.
+if (isLocalCopy()) {
+  window.__balloon = { game, scene, get recognizer() { return recognizer; }, beginPlay, debug, debugHistory };
+}

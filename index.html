@@ -2,6 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <!--
+    The rule that a child's voice never leaves this device, enforced by the browser
+    rather than promised by the code. connect-src 'self' is the important one: with
+    it, no fetch, XHR, sendBeacon, WebSocket or EventSource can reach another host,
+    so even a future mistake or a compromised dependency cannot send audio anywhere.
+    default-src 'none' means anything not listed below is refused outright.
+
+    Measured: without this header five of the exfiltration attempts in
+    tests/guardrails.test.mjs reach the network, one of them a POST that gets a real
+    response back. With it, none do.
+
+    'unsafe-eval' is here because the Emscripten glue inside vendor/vosk.js evaluates
+    a string during start-up, and the recogniser does not run without it. It permits
+    eval; it does not permit anything to be SENT anywhere, which is what this policy
+    is for. frame-ancestors is absent because a <meta> tag cannot deliver it and
+    GitHub Pages cannot set headers.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval' blob:; worker-src blob: 'self'; child-src blob:; connect-src 'self' blob:; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Balloon Reader</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -120,6 +138,11 @@
           <p class="fine-print">This happens once. After that it starts straight away.</p>
         </div>
 
+        <div id="own-preview" class="own-preview" hidden>
+          <strong>Your child will read:</strong>
+          <ul id="own-preview-list"></ul>
+        </div>
+
         <div class="secondary-row">
           <button class="link-btn" type="button" data-progress>Progress</button>
           <button id="sentences-btn" class="link-btn" type="button" hidden>My sentences</button>
@@ -152,11 +175,35 @@
         <h1>Great reading!</h1>
         <div id="over-stats" class="stats"></div>
         <button id="again-btn" class="big-btn" type="button">Play again</button>
+        <div id="own-preview" class="own-preview" hidden>
+          <strong>Your child will read:</strong>
+          <ul id="own-preview-list"></ul>
+        </div>
+
         <div class="secondary-row">
           <button class="link-btn" type="button" data-progress>Progress</button>
         </div>
       </div>
     </section>
+    <section id="grownup-screen" class="screen" hidden>
+      <div class="card">
+        <h1>For a grown-up</h1>
+        <p class="tagline" id="grownup-question">
+          Answer this to change what your child reads.
+        </p>
+        <label class="field grownup-field">
+          <span id="grownup-sum">What is seven plus four?</span>
+          <input id="grownup-answer" type="text" inputmode="numeric" autocomplete="off"
+            spellcheck="false" aria-label="Answer" />
+        </label>
+        <p id="grownup-problem" class="sentence-problems" hidden>Not quite — try again.</p>
+        <div class="button-row">
+          <button id="grownup-ok" class="big-btn" type="button">Continue</button>
+          <button id="grownup-cancel" class="link-btn" type="button">Back</button>
+        </div>
+      </div>
+    </section>
+
     <section id="sentences-screen" class="screen" hidden>
       <div class="card card-wide">
         <h1>My sentences</h1>

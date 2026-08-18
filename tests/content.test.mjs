@@ -12,6 +12,7 @@
 // substitute for reading it.
 
 const { LEVELS } = await import('../js/sentences.js');
+const { UNSAFE_WORDS, unsafeWordsIn } = await import('../js/safe-words.js');
 
 let failures = 0;
 function check(label, actual, expected = true) {
@@ -23,18 +24,8 @@ function check(label, actual, expected = true) {
 const words = (sentence) => sentence.split(/\s+/);
 const bare = (word) => word.toLowerCase().replace(/[^a-z']/g, '');
 
-// Anything a young child should not be asked to read aloud. This is a tripwire for
-// edits, deliberately blunt: it cannot judge tone or context, only spot obvious
-// words. Reading the sentences yourself is the actual safeguard.
-const NOT_FOR_CHILDREN = [
-  'kill', 'killed', 'kills', 'dead', 'death', 'die', 'died', 'dies', 'blood',
-  'bloody', 'gun', 'guns', 'shot', 'shoot', 'knife', 'stab', 'hate', 'hates',
-  'hurt', 'hurts', 'war', 'weapon', 'drunk', 'beer', 'wine', 'drug', 'drugs',
-  'stupid', 'idiot', 'dumb', 'ugly', 'fat', 'damn', 'hell', 'god', 'sexy',
-  'kiss', 'naked', 'scared', 'afraid', 'terrified', 'cry', 'crying', 'alone',
-  'lonely', 'sad', 'fight', 'fought', 'hit', 'kick', 'punch', 'steal', 'stole',
-];
-
+// The list lives in js/safe-words.js so the sentences shipped here and the sentences
+// a grown-up types are held to one standard rather than two that drift apart.
 console.log('=== every word the game will ask a child to read ===\n');
 
 const seen = new Map(); // word -> level where it first appears
@@ -74,8 +65,8 @@ check('each sentence starts with a capital letter',
 check('no sentence ends with a full stop (the game shows words, not punctuation)',
   allSentences.filter((s) => /[.!?,;:]$/.test(s)), []);
 
-const flagged = [...seen.keys()].filter((word) => NOT_FOR_CHILDREN.includes(word));
-check('no word from the not-for-children list', flagged, []);
+const flagged = [...seen.keys()].filter((word) => unsafeWordsIn(word).length > 0);
+check(`no word a child should not be asked to read (${UNSAFE_WORDS.size} blocked)`, flagged, []);
 
 check('every sentence is unique', allSentences.length, new Set(allSentences).size);
 
