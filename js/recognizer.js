@@ -20,12 +20,32 @@ const MODEL_URL = 'models/vosk-model-small-en-us-0.15.tar.gz';
 // Vosk reports out-of-grammar speech as this token.
 const UNKNOWN = '[unk]';
 
-// How many times the sentence's own words, and the whole sentence as one phrase,
-// are repeated in the grammar relative to the decoys. Tuned against recorded
-// speech in tests/speech.test.mjs.
-// Weighted higher and the decoder starts force-fitting the sentence onto noise:
-// at 6 it emitted "the sun" while completely unrelated speech was playing.
-const TARGET_WEIGHT = 4;
+// Vosk estimates a language model from the grammar list, so an entry repeated
+// more often gets more prior probability. There are a few hundred decoys and only
+// a handful of target words, so listing each once would give the decoys roughly
+// ten times the prior mass of the sentence itself — and an unstressed word decoded
+// on its own would lose to them. A child reading "The cat..." pauses after "The",
+// Vosk endpoints it into an utterance of its own, and a 100ms schwa with no
+// context stood no chance: it came back as "stop".
+//
+// TARGET_SHARE is the share of the prior mass the sentence's own words get. The
+// repeat count is derived from it, so adding or screening decoys cannot quietly
+// change the balance. Measured against recorded speech: at 0.6 unrelated speech
+// managed to finish a whole sentence, which is the one thing that must not happen.
+const TARGET_SHARE = 0.35;
+
+// Prior mass for "[unk]", the token Vosk gives speech that matches nothing. This
+// is the honest sink for wrong reading, and it needs weight to do the job: listed
+// once among a hundred-odd entries it barely competes, and unrelated speech lands
+// on a real word instead. Screening the decoys down to multi-syllable words (which
+// is what stopped them stealing short function words) left fewer of them to absorb
+// wrong speech, and "[unk]" is what takes up that slack — without competing with a
+// word the child actually read clearly.
+const UNKNOWN_SHARE = 0.25;
+
+// The whole sentence as one phrase, weighted separately: this is what carries word
+// ORDER. Pushed much above this the decoder starts force-fitting the sentence onto
+// noise — at 6 it emitted "the sun" while unrelated speech was playing.
 const PHRASE_WEIGHT = 3;
 
 function grammarWords(words) {
@@ -35,15 +55,28 @@ function grammarWords(words) {
   return [...new Set(cleaned)];
 }
 
-// Decoys exist to catch wrong speech, but one that sounds like a word in the
-// sentence does the opposite: it steals a correct reading. "so" and "saw" would
-// both swallow "the sun", and "the" read with a schwa lands on "saw" rather than
-// on "the". Anything within two edits of a target word is dropped, which is a
-// coarse stand-in for phonetic similarity but catches the cases that matter:
-// short words differing by a vowel or a final consonant.
+// Rough syllable count. Crude, but it only has to separate "mountain" from
+// "stop", and stripping a trailing silent "e" keeps "while" honest.
+function syllables(word) {
+  return (word.replace(/e$/, '').match(/[aeiouy]+/g) || []).length;
+}
+
+// Decoys exist to catch wrong speech, and they have to do it without stealing
+// right speech. Two screens, both learned from listening to what went wrong:
+//
+//   1. Only multi-syllable decoys. Every theft observed was by a monosyllable —
+//      "the sun" heard as "south", a schwa "the" heard as "stop", "sun" as "saw".
+//      A short unstressed word can only be outbid by another short word, and a
+//      child pausing after "The" leaves the decoder a 100ms schwa on its own with
+//      no context to help it. Long decoys cannot fit into that space, so short
+//      target words stop losing, while wrong speech — which is whole words and
+//      sentences — still has plenty to land on. Anything shorter falls to "[unk]".
+//   2. Nothing that looks like a word in this sentence, as a coarse phonetic
+//      guard for the longer words.
 function usefulDecoys(vocabulary) {
   return DECOY_WORDS.filter((decoy) => {
     if (vocabulary.includes(decoy)) return false;
+    if (syllables(decoy) < 2) return false;
     return !vocabulary.some((target) => editDistance(decoy, target) <= 2);
   });
 }
@@ -208,28 +241,14 @@ export class Recognizer {
       return kaldi;
     };
 
+    // Everything about building the grammar happens inside this try, including
+    // assembling the word list. A game that is silently deaf is the worst failure
+    // this code can have, so any mistake in here degrades to listening for the
+    // whole dictionary and says so, rather than leaving the child talking to
+    // nothing.
     if (vocabulary.length && !this.grammarFailed) {
-      // "[unk]" gives out-of-grammar speech somewhere to go, and the decoys give
-      // it somewhere plausible. Without both, the decoder forces unrelated
-      // speech onto the target words and the balloon rises for words the child
-      // never said. See js/decoys.js.
-      const decoys = usefulDecoys(vocabulary);
-      // Vosk estimates a small language model from this list, so what goes in it
-      // decides what the decoder expects to hear.
-      //
-      // The sentence itself goes in as a whole phrase, several times over. That
-      // is what teaches the decoder the ORDER of the words, and it matters more
-      // than any per-word tuning: without it, one long decoy can swallow two
-      // short target words ("the sun" decoded as "south"), because nothing tells
-      // the decoder that "the" is followed by "sun" here. The individual words go
-      // in too, so a child who stops mid-sentence or re-reads a word is still
-      // understood, and the decoys go in to catch speech that is none of the above.
-      const weighted = [];
-      if (phrase) for (let i = 0; i < PHRASE_WEIGHT; i++) weighted.push(phrase);
-      for (let i = 0; i < TARGET_WEIGHT; i++) weighted.push(...vocabulary);
-      const grammar = JSON.stringify([...weighted, ...decoys, UNKNOWN]);
       try {
-        this.kaldi = build(grammar);
+        this.kaldi = build(this.buildGrammar(vocabulary, phrase));
         return;
       } catch (error) {
         this.grammarFailed = true;
@@ -237,6 +256,33 @@ export class Recognizer {
       }
     }
     this.kaldi = build(null);
+  }
+
+  buildGrammar(vocabulary, phrase) {
+    const decoys = usefulDecoys(vocabulary);
+    // Vosk estimates a small language model from this list, so what goes in it
+    // decides what the decoder expects to hear.
+    //
+    // The sentence itself goes in as a whole phrase, several times over. That is
+    // what teaches the decoder the ORDER of the words, and it matters more than
+    // any per-word tuning: without it, one long decoy swallowed two short target
+    // words ("the sun" decoded as "south"). The individual words go in too, so a
+    // child who stops mid-sentence or re-reads a word is still understood, and
+    // the decoys go in to catch speech that is none of the above.
+    const weighted = [];
+    if (phrase) for (let i = 0; i < PHRASE_WEIGHT; i++) weighted.push(phrase);
+
+    // The decoys keep whatever share is left once the target words and "[unk]"
+    // have taken theirs, so the balance holds however many decoys survive.
+    const decoyShare = Math.max(0.1, 1 - TARGET_SHARE - UNKNOWN_SHARE);
+    const total = decoys.length / decoyShare;
+    const perTarget = Math.max(1, Math.round((total * TARGET_SHARE) / vocabulary.length));
+    const unknowns = Math.max(1, Math.round(total * UNKNOWN_SHARE));
+
+    for (let i = 0; i < perTarget; i++) weighted.push(...vocabulary);
+    for (let i = 0; i < unknowns; i++) weighted.push(UNKNOWN);
+
+    return JSON.stringify([...weighted, ...decoys]);
   }
 
   handleKaldiError(message, hadGrammar) {

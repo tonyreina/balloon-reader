@@ -62,21 +62,44 @@ something measurable:
    single long decoy word swallowed the pair: `the sun` came back as `south`.
 2. **The individual words**, repeated to bias the decoder toward them, so a child
    who stops mid-sentence, re-reads a word, or reads out of order is still heard.
-3. **A decoy vocabulary** ([js/decoys.js](js/decoys.js)) of ~400 common words, so
-   wrong speech has somewhere *plausible* to go. This matters more than it sounds:
-   with the sentence's words alone, 3 of 5 target words were credited during 30
-   seconds of completely unrelated speech — the balloon flew on words the child
-   never said. Decoys that sound like a word in the sentence are screened out
-   first, because those steal correct reading instead of catching wrong reading.
-4. **`[unk]`**, so speech that matches nothing at all has somewhere to go rather
-   than being forced onto a target word.
+3. **A decoy vocabulary** ([js/decoys.js](js/decoys.js)) of multi-syllable common
+   words, so wrong speech has somewhere *plausible* to go. This matters more than
+   it sounds: with the sentence's words alone, 3 of 5 target words were credited
+   during 30 seconds of completely unrelated speech — the balloon flew on words
+   the child never said.
+
+   Two screens decide which decoys survive, and both came from listening to what
+   went wrong. **Only multi-syllable decoys** are used, because every theft ever
+   observed was by a monosyllable: `the sun` heard as `south`, `sun` as `saw`, and
+   a schwa `the` as `stop` or `story`. A short unstressed word can only be outbid
+   by another short word, so long decoys cannot steal one. And **nothing that
+   looks like a word in this sentence** is kept, as a coarse guard for the longer
+   words.
+4. **`[unk]`**, with real prior weight — not a single mention among a hundred
+   entries. This is the honest sink for wrong reading, and screening the decoys
+   down to multi-syllable words left fewer of them to absorb it, so `[unk]` takes
+   up the slack. Unrelated speech lands there instead of on a word of the sentence.
+
+The prior mass given to each part is set as an explicit share rather than by
+counting entries, so screening decoys can't quietly shift the balance. Those
+shares are measured, not guessed: pushing the sentence's own share to 0.6 let
+unrelated speech finish a whole sentence, which is the one thing that must never
+happen.
 
 None of this is tuned by intuition. [tests/speech.test.mjs](tests/speech.test.mjs)
 hands Chromium a recorded WAV file as its microphone and measures what the game
-actually credits, including the case that motivated part 1: **"the" said the way
-people really say it.** Most of us reduce it to a schwa — "thuh", not "thee" — and
-that pronunciation used to stall the sentence completely. It is a regression test
-now.
+actually credits, including the two cases that drove most of the
+design: **"the" said the way people really say it.** Most of us reduce it to a
+schwa — "thuh", not "thee" — and that used to stall the sentence outright. Worse
+when the sentence *starts* with "The": a child pauses after it, so Vosk ends the
+utterance there and has to decode a 100ms schwa alone, with no word order to help.
+Both are regression tests now.
+
+Some of it a recognizer simply cannot win, so the game covers the gap instead. A
+short function word the microphone misses is credited as soon as the child reads
+the next word — and crucially, the game **never wiggles a function word** to say
+it was wrong. Telling a child who read "The" perfectly well that they got it wrong
+is worse than saying nothing.
 
 There is one more safeguard that does not depend on the recognizer at all. If a
 word still cannot be heard after the game has read it aloud twice, the game gives
@@ -102,6 +125,27 @@ moves on. No child is ever trapped on a word their microphone refuses to hear.
 - **Gentle mode** (on by default) slows the fall, strengthens each puff and gives
   five hearts. Turn it off for older or more confident readers.
 - **Press D** for the diagnostics panel: what the recognizer heard, word by word.
+
+## The wildlife
+
+Birds and butterflies cross the sky, and a caterpillar, cat or dog wanders the
+grass. The ground animals hop when the child reads a word, and all of them
+celebrate when a sentence is finished — they never say anything, because no text
+should compete with the words being read.
+
+Decoration in a reading game has to earn its place, so [js/critters.js](js/critters.js)
+is built around restraint, and [tests/scene.test.mjs](tests/scene.test.mjs)
+asserts every part of it:
+
+- **Never many:** at most two in the sky and one on the ground.
+- **Never often:** long random gaps, about two arrivals a minute, and the sky is
+  empty a good part of the time.
+- **Never in the way:** the flight band stops below the HUD and above the grass,
+  so nothing drifts over the sentence, and everything is drawn behind the balloon.
+- **Never while a child is struggling:** nothing new arrives once the game has
+  started helping with a stuck word.
+- **Never if unwanted:** no wildlife at all when the browser asks for reduced
+  motion.
 
 ## Levels and difficulty
 
@@ -149,6 +193,7 @@ deliberately generous:
 | [js/main.js](js/main.js) | Wires the DOM, the recognizer and the game loop |
 | [js/game.js](js/game.js) | Rules: words, hearts, levels, hints, helping out |
 | [js/scene.js](js/scene.js) | Canvas sky, balloon physics and rendering |
+| [js/critters.js](js/critters.js) | The birds, butterflies and ground animals |
 | [js/recognizer.js](js/recognizer.js) | Local speech recognition via Vosk |
 | [js/decoys.js](js/decoys.js) | Decoy vocabulary that keeps the grammar honest |
 | [js/voice.js](js/voice.js) | Local-only text-to-speech for hints |
@@ -170,11 +215,12 @@ Or individually:
 | --- | --- |
 | `test` | Word matching, hearts, levels, sentence flow, the never-stuck rule |
 | `test-recognizer` | Transcript bookkeeping: re-hypothesised partials, `[unk]`, the hint gate |
+| `test-scene` | Balloon geometry, and that the wildlife stays rare and out of the way |
 | `balance` | Physics simulation; prints the difficulty table above |
 | `test-browser` | Drives the real page in Chromium: rendering, physics, layout |
 | `test-speech` | **Feeds recorded speech to Chromium as a microphone** and checks what the game credits, including the schwa "the" |
 
-`test` and `test-recognizer` and `balance` need nothing but Node. The browser
+`test`, `test-recognizer`, `test-scene` and `balance` need nothing but Node. The browser
 tests start `serve.py` themselves, so they work as a single command on all three
 operating systems.
 

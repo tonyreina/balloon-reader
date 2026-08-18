@@ -162,7 +162,7 @@ function buildRecognizer() {
       debug(`heard: ${words.map((w) => w[0]).join(' ')}`);
       if (!paused) game.handleSpoken(words);
     },
-    onUnknown: () => { if (!paused) ui.nudge(); },
+    onUnknown: () => { if (!paused) game.noteUnknown(); },
     onRaw: (kind, text) => debug(`${kind}: ${text}`),
     onStatus: setMicStatus,
     onLevel: (rms) => {

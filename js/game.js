@@ -11,6 +11,9 @@ const FUNCTION_WORDS = new Set([
   'his', 'her', 'was', 'are', 'for', 'we', 'he', 'she', 'i', 'you',
 ]);
 
+const isFunctionWord = (word) =>
+  FUNCTION_WORDS.has(word.toLowerCase().replace(/[^a-z']/g, ''));
+
 const SENTENCES_PER_LEVEL = 4;
 const HINT_DELAY = 5.5;     // seconds stuck on a word before we read it aloud
 const HINT_REPEAT = 6;
@@ -60,6 +63,7 @@ export class Game {
     this.hintsGiven = 0;
     this.transition = 0;
     this.scene.reset();
+    this.scene.quiet = false;
     this.ui.renderSentence(this.words, this.index);
     this.ui.flashBanner(null);
     // The recognizer decodes against just this sentence's words.
@@ -84,7 +88,7 @@ export class Game {
       const next = this.words[this.index + 1];
       if (next && options.some((option) => matches(option, next.text))) {
         // Child read past a word the microphone missed.
-        if (FUNCTION_WORDS.has(target.text.toLowerCase().replace(/[^a-z]/g, ''))) {
+        if (isFunctionWord(target.text)) {
           this.acceptWord();
         } else {
           target.state = 'skipped';
@@ -96,8 +100,25 @@ export class Game {
       }
 
       if (options.every(isFiller)) continue;
-      this.ui.nudge();
+      this.nudgeUnlessFunctionWord(target);
     }
+  }
+
+  // Wiggling a word tells a child they got it wrong, so it must only happen when
+  // they probably did. Recognizers are unreliable on unstressed function words:
+  // a child who says "The" clearly, pausing after it, leaves the decoder a 100ms
+  // schwa on its own, which comes back as some other word entirely. Saying
+  // nothing is honest; saying "wrong" is not. The word is credited anyway as soon
+  // as they read the next one.
+  nudgeUnlessFunctionWord(target) {
+    if (target && isFunctionWord(target.text)) return;
+    this.ui.nudge();
+  }
+
+  // Speech the recognizer could not place at all.
+  noteUnknown() {
+    if (!this.running || this.transition > 0) return;
+    this.nudgeUnlessFunctionWord(this.words[this.index]);
   }
 
   acceptWord({ helped = false } = {}) {
@@ -121,6 +142,8 @@ export class Game {
     // less: it keeps the balloon flying without rewarding it as a read word.
     const power = (1 + Math.min(word.text.length, 10) * 0.035) * (helped ? 0.6 : 1);
     this.scene.puff(power);
+    this.scene.quiet = false;
+    this.scene.cheer(helped ? 0.5 : 1);
     this.ui.renderSentence(this.words, this.index);
     this.ui.renderStats(this);
 
@@ -138,6 +161,7 @@ export class Game {
     this.completedThisLevel += 1;
     this.score += 50;
     this.scene.escape();
+    this.scene.cheer(2.6);
     this.ui.renderStats(this);
 
     const levellingUp = this.completedThisLevel >= SENTENCES_PER_LEVEL
@@ -205,6 +229,7 @@ export class Game {
     const due = HINT_DELAY + this.hintsGiven * HINT_REPEAT;
     if (this.sinceProgress > due && this.hintsGiven < HINTS_BEFORE_HELP) {
       this.hintsGiven += 1;
+      this.scene.quiet = true;
       const word = this.words[this.index];
       if (word) {
         this.ui.highlightHint();

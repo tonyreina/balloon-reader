@@ -60,6 +60,31 @@ try {
   });
   check('sky is drawn with many colors', painted > 20);
 
+  // The wildlife is drawn with a real canvas context here, which the stub context
+  // in tests/scene.test.mjs cannot check: a wrong argument to arc() or ellipse()
+  // only throws in a browser.
+  const drawn = await page.evaluate(() => {
+    const critters = window.__balloon.scene.critters;
+    critters.list.length = 0;
+    for (const kind of ['bird', 'butterfly', 'caterpillar', 'cat', 'dog']) {
+      for (let tries = 0; tries < 200; tries++) {
+        const had = critters.list.length;
+        if (kind === 'bird' || kind === 'butterfly') critters.spawnSky();
+        else critters.spawnGround();
+        if (critters.list.at(-1).kind === kind) break;
+        critters.list.length = had;
+      }
+    }
+    critters.cheer(2);
+    return critters.list.map((c) => c.kind);
+  });
+  await page.waitForTimeout(300);
+  check('every creature kind draws on a real canvas', drawn.sort(),
+    ['bird', 'butterfly', 'cat', 'caterpillar', 'dog']);
+  check('drawing the wildlife raised no errors', problems, []);
+  await page.screenshot({ path: `${SHOTS}/shot-6-critters.png` });
+  await page.evaluate(() => { window.__balloon.scene.critters.list.length = 0; });
+
   const before = await page.evaluate(() => window.__balloon.scene.altitude);
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press('Space');

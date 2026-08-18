@@ -12,6 +12,7 @@
   "scripts": {
     "start": "python3 serve.py 8000",
     "test": "node tests/logic.test.mjs",
+    "test:scene": "node tests/scene.test.mjs",
     "balance": "node tests/balance.mjs",
     "test:browser": "node tests/browser.test.mjs",
     "test:speech": "node tests/speech.test.mjs"

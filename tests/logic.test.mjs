@@ -27,10 +27,11 @@ check('filler detected', isFiller('um'));
 
 console.log('\n-- game flow --');
 const scene = {
-  sink: 0, lift: 0, grounded: false, puffs: 0,
+  sink: 0, lift: 0, grounded: false, puffs: 0, quiet: false, cheers: 0,
   reset() { this.grounded = false; },
   puff() { this.puffs++; },
   escape() { this.escaped = true; },
+  cheer(strength) { this.cheers += strength; },
 };
 const ui = {
   sentences: 0, banners: [], nudges: 0, gameOver: false,
@@ -84,10 +85,50 @@ check('wrong word nudges', ui.nudges > 0);
 check('wrong word costs no heart', game.hearts, heartsBefore);
 check('fillers ignored', (() => { const n = ui.nudges; game.handleSpoken([['um']]); return ui.nudges === n; })());
 
+// A child who reads "The" correctly must never be told they got it wrong: the
+// recognizer is unreliable on short unstressed words, so it stays quiet instead.
+{
+  const quietScene = {
+    sink: 0, lift: 0, grounded: false, puffs: 0, quiet: false,
+    reset() {}, puff() {}, escape() {}, cheer() {},
+  };
+  let wiggles = 0;
+  const quietUi = {
+    renderSentence() {}, renderStats() {}, setLevelName() {}, flashBanner() {},
+    nudge() { wiggles += 1; }, highlightHint() {}, showGameOver() {}, onSentence() {},
+  };
+  const g = new Game(quietScene, quietUi);
+  g.start({ levelIndex: 0, gentle: false });
+  g.sentenceIndex = 1;
+  g.loadSentence();
+  check('sentence starting with a function word', g.words[0].text, 'The');
+
+  g.handleSpoken([['story']]);          // what the decoder really returns for a schwa
+  check('a missed "The" does not wiggle the word', wiggles, 0);
+  g.noteUnknown();
+  check('nor does unplaceable speech on "The"', wiggles, 0);
+
+  g.handleSpoken([['cat']]);
+  check('"The" is credited once the next word is read', g.words[0].state, 'read');
+  check('and so is the word that was heard', g.words[1].state, 'read');
+
+  g.handleSpoken([['banana']]);          // now the target is "is", also a function word
+  check('function words stay quiet', wiggles, 0);
+  while (g.index < g.words.length && ['is', 'on', 'my'].includes(g.words[g.index].text)) {
+    g.acceptWord();
+  }
+  check('the target is now a content word', g.words[g.index].text, 'lap');
+  g.handleSpoken([['banana']]);
+  check('a real content word still wiggles when misread', wiggles, 1);
+}
+
 // A word the microphone will not hear must not trap the child forever: the game
 // reads it aloud twice and then hands it over, marked as helped, not read.
 {
-  const helpScene = { sink: 0, lift: 0, grounded: false, puffs: 0, reset() {}, puff() {}, escape() {} };
+  const helpScene = {
+    sink: 0, lift: 0, grounded: false, puffs: 0, quiet: false,
+    reset() {}, puff() {}, escape() {}, cheer() {},
+  };
   const helpUi = {
     renderSentence() {}, renderStats() {}, setLevelName() {}, flashBanner() {},
     nudge() {}, highlightHint() {}, showGameOver() {}, onSentence() {},

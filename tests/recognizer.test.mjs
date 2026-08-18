@@ -89,7 +89,11 @@ console.log('\n-- grammar built for each sentence --');
   const grammar = FakeKaldi.created.at(-1);
 
   check('grammar contains the sentence words', ['i', 'can', 'see', 'the', 'sun'].every((w) => grammar.includes(w)));
-  check('grammar ends with the unknown token', grammar.at(-1), '[unk]');
+  check('the unknown token is in the grammar', grammar.includes('[unk]'));
+  // "[unk]" is the sink for wrong reading, so it needs real prior mass rather
+  // than a single mention among a hundred other entries.
+  check(`the unknown token carries weight (${grammar.filter((w) => w === '[unk]').length} entries)`,
+    grammar.filter((w) => w === '[unk]').length > 10);
   check('grammar includes decoy words so wrong speech has somewhere to go', grammar.length > 100);
   check('target words are repeated to bias the decoder toward them',
     grammar.filter((w) => w === 'sun').length > 1);
@@ -102,9 +106,11 @@ console.log('\n-- grammar built for each sentence --');
 
   // A decoy that sounds like a target word steals correct reading instead of
   // catching wrong reading.
-  check('decoys that sound like a sentence word are screened out',
-    ['so', 'saw', 'sea', 'ten', 'run', 'sing'].filter((w) => grammar.includes(w)), []);
-  check('decoys unlike the sentence words are kept',
+  // Every theft observed in real audio was by a monosyllable: "the sun" heard as
+  // "south", a schwa "the" heard as "stop" or "story".
+  check('monosyllable decoys are screened out entirely',
+    ['so', 'saw', 'sea', 'ten', 'run', 'sing', 'stop', 'south', 'thought'].filter((w) => grammar.includes(w)), []);
+  check('multi-syllable decoys are kept, to absorb wrong reading',
     ['mountain', 'because', 'window', 'yellow'].every((w) => grammar.includes(w)));
 
   const previous = FakeKaldi.created.length;
@@ -207,8 +213,8 @@ console.log('\n-- the game must not score its own hint voice --');
 console.log('\n-- recognizer driving the real game --');
 {
   const scene = {
-    sink: 0, lift: 0, grounded: false, puffs: 0,
-    reset() {}, puff() { this.puffs++; }, escape() {},
+    sink: 0, lift: 0, grounded: false, puffs: 0, quiet: false, cheers: 0,
+    reset() {}, puff() { this.puffs++; }, escape() {}, cheer(n) { this.cheers += n; },
   };
   const uiSentences = [];
   const ui = {

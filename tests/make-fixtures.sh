@@ -34,6 +34,11 @@ pad /tmp/br-wrong.wav wrong-sentence.wav
 speak "I can see thuh sun" /tmp/br-schwa.wav
 pad /tmp/br-schwa.wav schwa-the.wav
 
+# The same schwa, but starting the sentence. Harder: a child pauses after it, so
+# the decoder gets a 100ms schwa in an utterance of its own with no context.
+speak "thuh cat is on my lap" /tmp/br-initial.wav
+pad /tmp/br-initial.wav initial-the.wav
+
 rm -f /tmp/br-*.wav /tmp/br-list.txt
 echo "fixtures written to $(pwd)"
 ls -la *.wav

@@ -1,6 +1,8 @@
 // The sky: balloon physics plus everything drawn behind it.
 // Physics runs in CSS pixels; the canvas is scaled for device pixel ratio.
 
+import { Critters } from './critters.js';
+
 const TAU = Math.PI * 2;
 
 // Air drag, as a velocity multiplier per second. Everything else is derived
@@ -32,6 +34,9 @@ export class Scene {
     this.grounded = false;
     this.escaping = false;
     this.topInset = 58; // HUD height: the balloon must stay clear of it
+    // Set while the game is helping a stuck child, so no new wildlife arrives.
+    this.quiet = false;
+    this.critters = new Critters(this);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -74,6 +79,12 @@ export class Scene {
     return Math.max(this.floorY - this.ceilingY, 1);
   }
 
+  // Top of the grass. The ground animals stand on it and the sky band stops
+  // above it, so nothing wanders over the sentence.
+  get grassTop() {
+    return this.height - Math.max(28, this.height * 0.06);
+  }
+
   get ceilingY() {
     return Math.max(this.radius * 1.15, this.topInset + this.radius);
   }
@@ -109,6 +120,11 @@ export class Scene {
         size: 5 + Math.random() * 11,
       });
     }
+  }
+
+  // The ground animals hop when the child gets something right.
+  cheer(strength = 1) {
+    this.critters.cheer(strength);
   }
 
   celebrate() {
@@ -152,6 +168,7 @@ export class Scene {
       }
     }
 
+    this.critters.update(dt);
     this.squish = Math.max(0, this.squish - dt * 3.2);
     this.sway *= Math.pow(0.25, dt);
     this.time = (this.time || 0) + dt;
@@ -200,6 +217,7 @@ export class Scene {
       this.drawCloud(cloud.x * w, cloud.y * h, cloud.scale * Math.min(w, h) * 0.075);
     }
     this.drawGround();
+    this.critters.draw(ctx);
 
     for (const p of this.puffs) {
       ctx.globalAlpha = Math.max(0, p.life) * 0.55;
@@ -250,7 +268,7 @@ export class Scene {
 
   drawGround() {
     const { ctx, width: w, height: h } = this;
-    const grassTop = h - Math.max(28, h * 0.06);
+    const grassTop = this.grassTop;
 
     ctx.fillStyle = '#8fd06a';
     ctx.beginPath();
