@@ -65,6 +65,7 @@ export const LEVELS = [
       'A tiny spider was walking across the window',
       'The winter morning was cold and quiet',
       'We planted flowers along the garden path',
+      'Peter cooked dinner for me and my friends',
     ],
   },
   {
@@ -80,6 +81,11 @@ export const LEVELS = [
       'Her favorite library book was about ancient volcanoes',
       'A gentle breeze carried the smell of fresh bread down the street',
       'The astronaut floated slowly toward the shining silver station',
+      'Every adventure requires a first step',
+      'Things will look better in the morning',
+      'True friends are always together in spirit',
+      'Tomorrow is a new day with no mistakes in it yet',
+      'It is good people who make good places',
     ],
   },
 ];

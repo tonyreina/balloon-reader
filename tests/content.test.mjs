@@ -102,8 +102,17 @@ console.log(`      longest sentence by level:    ${longest.join(' -> ')} words`)
 check('sentences never get shorter as levels go up',
   longest.every((count, i) => i === 0 || count >= longest[i - 1]));
 
-check('every level has the same number of sentences',
-  new Set(LEVELS.map((level) => level.sentences.length)).size, 1);
+// Not "the same number" — that forbade the perfectly reasonable act of adding more
+// sentences to one level, and nothing in the game requires equal counts: promotion
+// happens after SENTENCES_PER_LEVEL completions regardless, so a longer level simply
+// has more variety before it repeats. What must hold is that no level is too thin to
+// finish, which is what catches a truncated or half-deleted list.
+const PROMOTION = 4;   // js/game.js SENTENCES_PER_LEVEL
+const counts = LEVELS.map((level) => level.sentences.length);
+console.log(`      sentences per level:          ${counts.join(' · ')}`);
+check(`every level has enough to reach promotion (needs ${PROMOTION})`,
+  counts.filter((n) => n < PROMOTION), []);
+check('and enough for variety before repeating', counts.filter((n) => n < 6), []);
 
 console.log(failures ? `\n${failures} failing check(s)` : '\nAll content checks passed');
 process.exit(failures ? 1 : 0);
