@@ -20,6 +20,8 @@ export const LEVELS = [
       'He has a fun job',
       'She sat on the mat',
       'You can hop and run',
+      'The pig sat in the mud',
+      'We can get on the bus',
     ],
   },
   {
@@ -35,6 +37,8 @@ export const LEVELS = [
       'Please help me plant the seed',
       'The truck went past our school',
       'Granddad and I dance and sing',
+      'The strong wind blew my flag away',
+      'Please stand still and clap your hands',
     ],
   },
   {
@@ -50,6 +54,8 @@ export const LEVELS = [
       'Those cute mice hide in the pipe',
       'Please write your name on the page',
       'The brave mule pulled the heavy load',
+      'The huge whale swims deep below',
+      'She woke up late and ate cake',
     ],
   },
   {
@@ -65,6 +71,7 @@ export const LEVELS = [
       'A tiny spider was walking across the window',
       'The winter morning was cold and quiet',
       'We planted flowers along the garden path',
+      'The yellow kitten chased a paper ball',
       'Peter cooked dinner for me and my friends',
     ],
   },
@@ -125,6 +132,7 @@ const wordsOf = (sentence) =>
 // when nothing is due.
 export function pickSentence({
   levelIndex, custom = [], dueWords = new Set(), recent = [], cursor = 0, shown = {},
+  random = Math.random,
 } = {}) {
   const level = levelAt(levelIndex, custom);
   const pool = level.sentences;
@@ -145,24 +153,27 @@ export function pickSentence({
     if (best) return best;
   }
 
-  // Otherwise the one this child has read least often, walking forward from the
-  // cursor so that ties keep the level's written order. A level holds more sentences
-  // than the four a child reads before promotion, so picking purely by position
-  // served the same few every game and left the rest of the level unread — nine of
-  // level four's sentences, only four were ever reachable. With every count equal,
-  // which is how a new game starts, this behaves exactly like walking in order.
-  let best = null;
+  // Otherwise: at random, but only among the sentences this child has read least
+  // often. The two rules together are what matter. Least-read first means a level is
+  // exhausted before anything repeats — choosing purely by position served the same
+  // few every game and left most of each level unread — and choosing at random among
+  // the equals means the order is different every time rather than a fixed march
+  // through the list.
   let fewest = Infinity;
+  let candidates = [];
   for (let step = 0; step < pool.length; step++) {
     const candidate = pool[(cursor + step) % pool.length];
     if (recent.includes(candidate)) continue;
     const count = shown[candidate] || 0;
     if (count < fewest) {
       fewest = count;
-      best = candidate;
+      candidates = [candidate];
+    } else if (count === fewest) {
+      candidates.push(candidate);
     }
   }
-  return best ?? pool[cursor % pool.length];
+  if (!candidates.length) return pool[cursor % pool.length];
+  return candidates[Math.floor(random() * candidates.length) % candidates.length];
 }
 
 export function sentenceAt(levelIndex, sentenceIndex, custom = []) {
