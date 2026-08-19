@@ -205,6 +205,12 @@ on. Nothing is uploaded, there is no account, and **Forget everything** on the
 progress screen deletes all of it. In private browsing, or where storage is blocked,
 the game keeps going without remembering anything rather than refusing to play.
 
+### Which sentence comes next
+
+How often each sentence has been read is remembered, so the game can reach for the one
+a child has seen least. Without it, most of every level was unreachable — see "Levels
+and difficulty".
+
 ### Practice for the words they got wrong
 
 Words the game had to give away come back on their own. Each one rests for a while
@@ -272,11 +278,21 @@ and left the balloon little sky; it now fits in two.
 
 ## Levels and difficulty
 
-Five levels, four sentences each before promotion, from CVC words and sight words
-up to full storybook sentences. Within a level the game works through the sentences
-in order, except when one of them contains a word that is due for practice — see
-"What the game remembers". Edit [js/sentences.js](js/sentences.js) to change the
-content; the levels are plain arrays of strings.
+Five levels, four sentences each before promotion, from CVC words and sight words up
+to full storybook sentences. Levels do not have to hold the same number of sentences;
+a longer one simply offers more variety before it repeats.
+
+Which sentence comes next is decided in this order: one containing a word that is due
+for practice, then the one this child has read **least often**, with ties keeping the
+level's written order. That last part matters more than it sounds. A level holds more
+sentences than the four a child reads before being promoted, and a new game always
+starts at the beginning, so choosing purely by position served the same few every
+single time: 29 of 46 sentences were reachable and 17 could never appear, however long
+anyone played. Counting what has been read makes one playthrough cover about half the
+content and three cover all of it.
+
+Edit [js/sentences.js](js/sentences.js) to change the content; the levels are plain
+arrays of strings.
 
 Each level sets `sink` (how much of the sky the balloon loses per second of
 silence) and `lift` (how much one correct word gains back), both as fractions of

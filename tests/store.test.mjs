@@ -14,7 +14,8 @@ globalThis.window = { addEventListener() {} };
 
 const { Store, checkCustomSentences } = await import('../js/store.js');
 const { canAddOwnSentences } = await import('../js/env.js');
-const { pickSentence, CUSTOM_INDEX } = await import('../js/sentences.js');
+const { pickSentence, CUSTOM_INDEX, LEVELS } = await import('../js/sentences.js');
+const { Game } = await import('../js/game.js');
 
 // A stand-in for localStorage, plus a clock we control so the resting periods
 // between practice attempts can be tested without waiting days.
@@ -171,6 +172,59 @@ console.log('\n-- own sentences are local only --');
     allowed.every((location) => canAddOwnSentences(location)));
   check('hidden everywhere it is published',
     hidden.some((location) => canAddOwnSentences(location)), false);
+}
+
+console.log('\n-- every sentence gets used --');
+{
+  // A level holds more sentences than the four a child reads before promotion, and a
+  // new game always starts at the beginning, so picking purely by position served the
+  // same few every time: 29 of 46 sentences were reachable and 17 could never appear,
+  // however long anyone played. The game now reaches for the one read least often.
+  const store = newStore();
+  const scene = {
+    sink: 0, lift: 0, grounded: false, quiet: false,
+    reset() {}, puff() {}, escape() {}, cheer() {},
+  };
+  const seen = new Set();
+  const ui = {
+    renderSentence() {}, renderStats() {}, setLevelName() {}, flashBanner() {},
+    nudge() {}, highlightHint() {}, showGameOver() {},
+    onSentence(words) { seen.add(words.join(' ')); },
+  };
+
+  const playPerfectly = (rounds = 24) => {
+    const game = new Game(scene, ui, store);
+    game.start({ levelIndex: 0, gentle: false });
+    for (let i = 0; i < rounds; i++) {
+      while (game.index < game.words.length) game.acceptWord();
+      game.update(2.1);
+    }
+  };
+
+  const total = LEVELS.reduce((n, level) => n + level.sentences.length, 0);
+  playPerfectly();
+  const first = seen.size;
+  check(`one playthrough covers a good share of the content (${first}/${total})`, first > total * 0.4);
+
+  for (let round = 0; round < 4; round++) playPerfectly();
+  check(`replaying reaches every sentence (${seen.size}/${total})`, seen.size, total);
+
+  const missed = LEVELS.flatMap((level) => level.sentences.filter((sentence) => !seen.has(sentence)));
+  check('no sentence is unreachable', missed, []);
+}
+
+console.log('\n-- a fresh store still reads the level in its written order --');
+{
+  // Least-read selection must not disturb the pacing when nothing has been read yet:
+  // with every count equal it has to behave exactly like walking in order.
+  const level1 = LEVELS[0].sentences;
+  check('first sentence', pickSentence({ levelIndex: 0, cursor: 0, shown: {} }), level1[0]);
+  check('then the second', pickSentence({ levelIndex: 0, cursor: 1, shown: {} }), level1[1]);
+
+  // Once one has been read, an unread one wins even if the cursor points elsewhere.
+  const shown = { [level1[1]]: 3 };
+  check('a well-read sentence gives way to an unread one',
+    pickSentence({ levelIndex: 0, cursor: 1, shown }), level1[2]);
 }
 
 console.log('\n-- a grown-up\'s own sentences drive the game --');

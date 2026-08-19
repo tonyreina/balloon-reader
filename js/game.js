@@ -19,6 +19,8 @@ const FORGETFUL = {
   noteWord() {},
   dueWords() { return new Set(); },
   endSession() {},
+  noteSentenceShown() {},
+  shownCounts: {},
 };
 
 export class Game {
@@ -66,8 +68,10 @@ export class Game {
       dueWords: this.store.dueWords(),
       recent: this.recent,
       cursor: this.sentenceIndex,
+      shown: this.store.shownCounts,
     });
     if (!text) return;
+    this.store.noteSentenceShown(text);
     this.recent = [text, ...this.recent].slice(0, 3);
     this.words = text.split(/\s+/).map((word) => ({ text: word, state: 'pending' }));
     this.index = 0;

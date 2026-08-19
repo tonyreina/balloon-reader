@@ -31,6 +31,7 @@ const blank = () => ({
   sessions: [],
   custom: [],
   settings: {},
+  shown: {},      // sentence -> how many times it has been put in front of the child
 });
 
 function readStorage() {
@@ -123,6 +124,20 @@ export class Store {
       .sort((a, b) => (b[1].helped - a[1].helped) || (a[1].strength - b[1].strength))
       .slice(0, limit)
       .map(([word, entry]) => ({ word, ...entry }));
+  }
+
+  // --- which sentences have been seen ------------------------------------
+  // A level holds more sentences than a child reads before being promoted, so
+  // without this the same few came round every single game and the rest were dead
+  // content. Counting them lets the game reach for the least-read one next.
+  noteSentenceShown(sentence) {
+    if (!sentence) return;
+    this.data.shown[sentence] = (this.data.shown[sentence] || 0) + 1;
+    this.write();
+  }
+
+  get shownCounts() {
+    return this.data.shown;
   }
 
   // --- sessions ---------------------------------------------------------
