@@ -123,7 +123,9 @@ const wordsOf = (sentence) =>
 // `recent` is the handful just shown, so the same sentence does not come round
 // twice in a row, and `cursor` provides the plain sequential order to fall back on
 // when nothing is due.
-export function pickSentence({ levelIndex, custom = [], dueWords = new Set(), recent = [], cursor = 0 }) {
+export function pickSentence({
+  levelIndex, custom = [], dueWords = new Set(), recent = [], cursor = 0, shown = {},
+} = {}) {
   const level = levelAt(levelIndex, custom);
   const pool = level.sentences;
   if (!pool.length) return null;
@@ -143,14 +145,24 @@ export function pickSentence({ levelIndex, custom = [], dueWords = new Set(), re
     if (best) return best;
   }
 
-  // Otherwise straight through the level in order, stepping over anything just
-  // shown. Walking forward from the cursor keeps that order intact — filtering the
-  // pool first would renumber it and scramble the sequence.
+  // Otherwise the one this child has read least often, walking forward from the
+  // cursor so that ties keep the level's written order. A level holds more sentences
+  // than the four a child reads before promotion, so picking purely by position
+  // served the same few every game and left the rest of the level unread — nine of
+  // level four's sentences, only four were ever reachable. With every count equal,
+  // which is how a new game starts, this behaves exactly like walking in order.
+  let best = null;
+  let fewest = Infinity;
   for (let step = 0; step < pool.length; step++) {
     const candidate = pool[(cursor + step) % pool.length];
-    if (!recent.includes(candidate)) return candidate;
+    if (recent.includes(candidate)) continue;
+    const count = shown[candidate] || 0;
+    if (count < fewest) {
+      fewest = count;
+      best = candidate;
+    }
   }
-  return pool[cursor % pool.length];
+  return best ?? pool[cursor % pool.length];
 }
 
 export function sentenceAt(levelIndex, sentenceIndex, custom = []) {
