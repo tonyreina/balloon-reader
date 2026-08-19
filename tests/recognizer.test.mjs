@@ -230,7 +230,7 @@ console.log('\n-- recognizer driving the real game --');
   });
   ui.onSentence = (words) => { uiSentences.push(words.join(' ')); recognizer.setTarget(words); };
 
-  game.start({ levelIndex: 0, gentle: false });
+  game.start({ levelIndex: 0, gentle: false, random: () => 0 });
   check('the game told the recognizer what to listen for', uiSentences, ['I can see the sun']);
 
   recognizer.kaldi.partial('i can see');

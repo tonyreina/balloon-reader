@@ -23,6 +23,20 @@ function check(label, actual, expected = true) {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${ok ? '' : `  expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`}`);
 }
 
+
+// Sentence order is random in the game, deliberately. These tests need a known
+// sentence — the recorded audio says one specific line — so they pin the random
+// source, clear what has been read, and reload. tests/store.test.mjs is where the
+// randomness itself is checked.
+const pinSentence = (page, index = 0) => page.evaluate((i) => {
+  const game = window.__balloon.game;
+  game.random = () => 0;
+  game.recent = [];
+  game.sentenceIndex = i;
+  game.store.data.shown = {};
+  game.loadSentence();
+}, index);
+
 const stopServer = await ensureServer(BASE);
 const browser = await chromium.launch({
   args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
@@ -47,6 +61,7 @@ try {
   await page.waitForSelector('#start-screen', { state: 'hidden', timeout: 180000 });
   check('the speech model finished loading', await page.evaluate(() => window.__balloon.recognizer?.ready === true));
 
+  await pinSentence(page, 0);
   const words = await page.$$eval('#sentence .word', (nodes) => nodes.map((n) => n.textContent));
   check('sentence rendered', words, ['I', 'can', 'see', 'the', 'sun']);
   check('first word is current', await page.$eval('#sentence .word', (n) => n.classList.contains('current')));

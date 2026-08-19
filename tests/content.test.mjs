@@ -11,8 +11,12 @@
 // The word-list output is the important part. The assertions are a tripwire, not a
 // substitute for reading it.
 
+// game.js reaches voice.js, which looks for speechSynthesis at import time.
+globalThis.window = { addEventListener() {} };
+
 const { LEVELS } = await import('../js/sentences.js');
 const { UNSAFE_WORDS, unsafeWordsIn } = await import('../js/safe-words.js');
+const { SENTENCES_PER_LEVEL } = await import('../js/game.js');
 
 let failures = 0;
 function check(label, actual, expected = true) {
@@ -102,17 +106,18 @@ console.log(`      longest sentence by level:    ${longest.join(' -> ')} words`)
 check('sentences never get shorter as levels go up',
   longest.every((count, i) => i === 0 || count >= longest[i - 1]));
 
-// Not "the same number" — that forbade the perfectly reasonable act of adding more
-// sentences to one level, and nothing in the game requires equal counts: promotion
-// happens after SENTENCES_PER_LEVEL completions regardless, so a longer level simply
-// has more variety before it repeats. What must hold is that no level is too thin to
-// finish, which is what catches a truncated or half-deleted list.
-const PROMOTION = 4;   // js/game.js SENTENCES_PER_LEVEL
+// Levels are not required to hold the same number of sentences, nor to hold as many
+// as promotion asks for: a child reads SENTENCES_PER_LEVEL sentences to be promoted,
+// and a level with fewer simply repeats — every distinct one first, then its least
+// read. What must hold is that no level is empty or so thin that promotion is mostly
+// re-reading, which is what a truncated or half-deleted list would look like.
 const counts = LEVELS.map((level) => level.sentences.length);
 console.log(`      sentences per level:          ${counts.join(' · ')}`);
-check(`every level has enough to reach promotion (needs ${PROMOTION})`,
-  counts.filter((n) => n < PROMOTION), []);
-check('and enough for variety before repeating', counts.filter((n) => n < 6), []);
+console.log(`      promotion needs ${SENTENCES_PER_LEVEL}, so each level repeats: `
+  + `${counts.map((n) => Math.max(0, SENTENCES_PER_LEVEL - n)).join(' · ')}`);
+check('no level is empty', counts.filter((n) => n === 0), []);
+check('and none is so thin that promotion is mostly re-reading',
+  counts.filter((n) => n < SENTENCES_PER_LEVEL / 2), []);
 
 console.log(failures ? `\n${failures} failing check(s)` : '\nAll content checks passed');
 process.exit(failures ? 1 : 0);

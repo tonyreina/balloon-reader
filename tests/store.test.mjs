@@ -88,6 +88,9 @@ console.log('\n-- sentences are chosen to bring practice words back --');
   store.noteWord('lap', { helped: true });
   const chosen = pickSentence({ levelIndex: 0, dueWords: store.dueWords() });
   check('a sentence containing the due word is chosen', chosen, 'The cat is on my lap');
+  check('and it beats the randomness, every time',
+    Array.from({ length: 30 }, () => pickSentence({ levelIndex: 0, dueWords: store.dueWords() }))
+      .every((s) => s === 'The cat is on my lap'));
 
   // But never the same sentence twice running.
   const again = pickSentence({ levelIndex: 0, dueWords: store.dueWords(), recent: [chosen] });
@@ -192,9 +195,11 @@ console.log('\n-- every sentence gets used --');
     onSentence(words) { seen.add(words.join(' ')); },
   };
 
-  const playPerfectly = (rounds = 24) => {
+  // Long enough to climb every level: promotion needs SENTENCES_PER_LEVEL sentences,
+  // so reaching the last level takes four times that before its own are even started.
+  const playPerfectly = (rounds = 70) => {
     const game = new Game(scene, ui, store);
-    game.start({ levelIndex: 0, gentle: false });
+    game.start({ levelIndex: 0, gentle: false, random: () => 0 });
     for (let i = 0; i < rounds; i++) {
       while (game.index < game.words.length) game.acceptWord();
       game.update(2.1);
@@ -204,27 +209,76 @@ console.log('\n-- every sentence gets used --');
   const total = LEVELS.reduce((n, level) => n + level.sentences.length, 0);
   playPerfectly();
   const first = seen.size;
-  check(`one playthrough covers a good share of the content (${first}/${total})`, first > total * 0.4);
+  check(`one full playthrough covers most of the content (${first}/${total})`, first > total * 0.8);
 
-  for (let round = 0; round < 4; round++) playPerfectly();
+  for (let round = 0; round < 3; round++) playPerfectly();
   check(`replaying reaches every sentence (${seen.size}/${total})`, seen.size, total);
 
   const missed = LEVELS.flatMap((level) => level.sentences.filter((sentence) => !seen.has(sentence)));
   check('no sentence is unreachable', missed, []);
 }
 
-console.log('\n-- a fresh store still reads the level in its written order --');
+console.log('\n-- a level is exhausted before anything repeats --');
 {
-  // Least-read selection must not disturb the pacing when nothing has been read yet:
-  // with every count equal it has to behave exactly like walking in order.
-  const level1 = LEVELS[0].sentences;
-  check('first sentence', pickSentence({ levelIndex: 0, cursor: 0, shown: {} }), level1[0]);
-  check('then the second', pickSentence({ levelIndex: 0, cursor: 1, shown: {} }), level1[1]);
+  // Promotion asks for more sentences than the smaller levels hold, so they must
+  // repeat. What matters is that a repeat never comes before an unread sentence: a
+  // child should meet everything in a level before meeting anything twice.
+  const store = newStore();
+  const scene = {
+    sink: 0, lift: 0, grounded: false, quiet: false,
+    reset() {}, puff() {}, escape() {}, cheer() {},
+  };
+  const order = [];
+  const ui = {
+    renderSentence() {}, renderStats() {}, setLevelName() {}, flashBanner() {},
+    nudge() {}, highlightHint() {}, showGameOver() {},
+    onSentence(words) { order.push({ level: game.levelIndex, text: words.join(' ') }); },
+  };
+  const game = new Game(scene, ui, store);
+  game.start({ levelIndex: 0, gentle: false, random: () => 0 });
+  for (let i = 0; i < 40; i++) {
+    while (game.index < game.words.length) game.acceptWord();
+    game.update(2.1);
+  }
 
-  // Once one has been read, an unread one wins even if the cursor points elsewhere.
+  const tooSoon = [];
+  for (const [index, level] of LEVELS.entries()) {
+    const readHere = order.filter((row) => row.level === index).map((row) => row.text);
+    const seenHere = new Set();
+    for (const [position, text] of readHere.entries()) {
+      if (seenHere.has(text) && seenHere.size < level.sentences.length) {
+        tooSoon.push(`${level.name}: repeated "${text}" at ${position} with ${level.sentences.length - seenHere.size} unread`);
+      }
+      seenHere.add(text);
+    }
+  }
+  check('nothing is read twice while something is unread', tooSoon, []);
+}
+
+console.log('\n-- the order is different every time --');
+{
+  const level1 = LEVELS[0].sentences;
+
+  // Which sentence opens a game must not be fixed, or every playthrough starts the
+  // same way. Randomness is injectable so the rest of the suite can pin it.
+  const openings = new Set();
+  for (let i = 0; i < 60; i++) openings.add(pickSentence({ levelIndex: 0 }));
+  check(`a fresh game can open on any of them (${openings.size}/${level1.length})`,
+    openings.size, level1.length);
+  check('and always on a sentence from that level',
+    [...openings].every((sentence) => level1.includes(sentence)));
+
+  // Random, but only among the least-read: a sentence already read waits while
+  // anything is still unread, which is what keeps a level from repeating early.
   const shown = { [level1[1]]: 3 };
-  check('a well-read sentence gives way to an unread one',
-    pickSentence({ levelIndex: 0, cursor: 1, shown }), level1[2]);
+  const picks = new Set();
+  for (let i = 0; i < 60; i++) picks.add(pickSentence({ levelIndex: 0, shown }));
+  check('an already-read sentence waits its turn', picks.has(level1[1]), false);
+
+  // Pinned, it is deterministic, which is what the rest of the suite relies on.
+  const pinned = pickSentence({ levelIndex: 0, random: () => 0 });
+  check('a pinned random source is repeatable',
+    pickSentence({ levelIndex: 0, random: () => 0 }), pinned);
 }
 
 console.log('\n-- a grown-up\'s own sentences drive the game --');

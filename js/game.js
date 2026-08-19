@@ -4,7 +4,11 @@ import { matches, isFiller, isFunctionWord } from './matcher.js';
 import { LEVELS, levelAt, pickSentence, CUSTOM_INDEX } from './sentences.js';
 import { say } from './voice.js';
 
-const SENTENCES_PER_LEVEL = 4;
+// How many sentences a child reads before being promoted. Exported because
+// tests/content.test.mjs judges the sentence lists against it, and a second copy of
+// this number is a copy that goes stale: it sat at 4 in that test after this became
+// 10, so the test was quietly checking the wrong thing.
+export const SENTENCES_PER_LEVEL = 10;
 const HINT_DELAY = 5.5;     // seconds stuck on a word before we read it aloud
 const HINT_REPEAT = 6;
 // No recognizer hears every child every time. Rather than let a word the
@@ -16,10 +20,10 @@ const HELP_DELAY = 5;
 // Used when no store is supplied, so the game runs the same with nothing to
 // remember (and so tests need not stub persistence).
 const FORGETFUL = {
-  noteWord() {},
+  noteWord() { },
   dueWords() { return new Set(); },
-  endSession() {},
-  noteSentenceShown() {},
+  endSession() { },
+  noteSentenceShown() { },
   shownCounts: {},
 };
 
@@ -31,7 +35,8 @@ export class Game {
     this.running = false;
   }
 
-  start({ levelIndex = 0, gentle = false, custom = [] } = {}) {
+  start({ levelIndex = 0, gentle = false, custom = [], random = Math.random } = {}) {
+    this.random = random;
     this.levelIndex = levelIndex;
     this.custom = custom;
     this.sentenceIndex = 0;
@@ -69,6 +74,7 @@ export class Game {
       recent: this.recent,
       cursor: this.sentenceIndex,
       shown: this.store.shownCounts,
+      random: this.random,
     });
     if (!text) return;
     this.store.noteSentenceShown(text);
@@ -255,7 +261,7 @@ export class Game {
     this.sinceProgress += dt;
 
     if (this.hintsGiven >= HINTS_BEFORE_HELP
-        && this.sinceProgress > HINT_DELAY + (HINTS_BEFORE_HELP - 1) * HINT_REPEAT + HELP_DELAY) {
+      && this.sinceProgress > HINT_DELAY + (HINTS_BEFORE_HELP - 1) * HINT_REPEAT + HELP_DELAY) {
       this.acceptWord({ helped: true });
       return;
     }

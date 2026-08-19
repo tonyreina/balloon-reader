@@ -207,9 +207,11 @@ the game keeps going without remembering anything rather than refusing to play.
 
 ### Which sentence comes next
 
-How often each sentence has been read is remembered, so the game can reach for the one
-a child has seen least. Without it, most of every level was unreachable — see "Levels
-and difficulty".
+How often each sentence has been read is remembered, so the game can pick at random
+from among the ones a child has seen least. Without it, most of every level was
+unreachable — see "Levels and difficulty". The randomness is injectable, which is how
+the tests that need a known sentence — the recorded speech fixtures say one specific
+line — pin it.
 
 ### Practice for the words they got wrong
 
@@ -278,18 +280,21 @@ and left the balloon little sky; it now fits in two.
 
 ## Levels and difficulty
 
-Five levels, four sentences each before promotion, from CVC words and sight words up
-to full storybook sentences. Levels do not have to hold the same number of sentences;
-a longer one simply offers more variety before it repeats.
+Five levels, ten sentences each before promotion, from CVC words and sight words up to
+full storybook sentences. Levels do not have to hold the same number of sentences; a
+longer one simply offers more variety before it repeats.
 
-Which sentence comes next is decided in this order: one containing a word that is due
-for practice, then the one this child has read **least often**, with ties keeping the
-level's written order. That last part matters more than it sounds. A level holds more
-sentences than the four a child reads before being promoted, and a new game always
-starts at the beginning, so choosing purely by position served the same few every
-single time: 29 of 46 sentences were reachable and 17 could never appear, however long
-anyone played. Counting what has been read makes one playthrough cover about half the
-content and three cover all of it.
+Which sentence comes next is decided in this order:
+
+1. one containing a word that is **due for practice**, then
+2. **at random** among the sentences this child has read **least often**.
+
+Both halves of that second rule matter. Least-read first means a level is exhausted
+before anything repeats — choosing purely by position served the same few sentences
+every game and left most of each level unread, 29 of 46 reachable and 17 that could
+never appear however long anyone played. Random among the equals means the order is
+different every playthrough rather than a fixed march through the list. Together they
+mean a full run now reads all 53 sentences, in a different order each time.
 
 Edit [js/sentences.js](js/sentences.js) to change the content; the levels are plain
 arrays of strings.

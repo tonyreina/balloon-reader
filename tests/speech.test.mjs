@@ -43,7 +43,7 @@ function check(label, actual, expected = true) {
 }
 
 // Opens the game with a WAV file standing in for the microphone.
-async function openGame(audioFile, sentenceIndex = null) {
+async function openGame(audioFile, sentenceIndex = 0) {
   const browser = await chromium.launch({
     args: [
       '--use-fake-ui-for-media-stream',
@@ -61,14 +61,19 @@ async function openGame(audioFile, sentenceIndex = null) {
   // Model download and unpack, then the microphone, then the first sentence.
   await page.waitForFunction(() => window.__balloon.recognizer?.ready === true, { timeout: 180000 });
   await page.waitForSelector('#start-screen', { state: 'hidden', timeout: 30000 });
-  if (sentenceIndex !== null) {
-    await page.evaluate((index) => {
-      const game = window.__balloon.game;
-      game.sentenceIndex = index;
-      game.loadSentence();
-    }, sentenceIndex);
-    await page.waitForTimeout(400);
-  }
+  // Sentence order is random in the game, deliberately. The recorded audio says one
+  // specific line, so pin the random source and clear what has been read, or the game
+  // would be listening for a sentence the fixture never speaks. The randomness itself
+  // is checked in tests/store.test.mjs.
+  await page.evaluate((index) => {
+    const game = window.__balloon.game;
+    game.random = () => 0;
+    game.recent = [];
+    game.sentenceIndex = index;
+    game.store.data.shown = {};
+    game.loadSentence();
+  }, sentenceIndex);
+  await page.waitForTimeout(400);
   return { browser, page, errors };
 }
 

@@ -45,7 +45,7 @@ const ui = {
 };
 
 const game = new Game(scene, ui);
-game.start({ levelIndex: 0, gentle: false });
+game.start({ levelIndex: 0, gentle: false, random: () => 0 });
 check('first sentence loaded', game.words.map((w) => w.text).join(' '), 'I can see the sun');
 check('three hearts', game.hearts, 3);
 
@@ -98,7 +98,7 @@ check('fillers ignored', (() => { const n = ui.nudges; game.handleSpoken([['um']
     nudge() { wiggles += 1; }, highlightHint() {}, showGameOver() {}, onSentence() {},
   };
   const g = new Game(quietScene, quietUi);
-  g.start({ levelIndex: 0, gentle: false });
+  g.start({ levelIndex: 0, gentle: false, random: () => 0 });
   g.sentenceIndex = 1;
   g.loadSentence();
   check('sentence starting with a function word', g.words[0].text, 'The');
@@ -134,7 +134,7 @@ check('fillers ignored', (() => { const n = ui.nudges; game.handleSpoken([['um']
     nudge() {}, highlightHint() {}, showGameOver() {}, onSentence() {},
   };
   const stuck = new Game(helpScene, helpUi);
-  stuck.start({ levelIndex: 0, gentle: false });
+  stuck.start({ levelIndex: 0, gentle: false, random: () => 0 });
   const firstWord = stuck.words[0].text;
 
   stuck.update(6);   // first hint
